@@ -34,7 +34,7 @@ ignore = [
   "COM812", # trailing comma, the formatter owns this
   "D203",   # mutually exclusive with D211
   "D213",   # mutually exclusive with D212
-  "CPY001", # a personal repository carries no copyright header
+  "CPY001", # the license is stated once, in LICENSE, not in every file
   "S603",   # every subprocess here runs a fixed tool with an argument list
   "S607",   # tools are found on PATH on purpose: the tests put fakes first
   "D401",   # a docstring may say what a value is, not only what a call does

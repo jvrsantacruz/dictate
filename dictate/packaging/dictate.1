@@ -18,8 +18,14 @@ Run
 for its options.
 .SH FILES
 .TP
+.I /etc/dictate/config
+The machine's defaults, written by the admin; the package ships none.
+.TP
 .I ~/.config/dictate/config
-Settings, as KEY="value" lines. A DICTATE_ variable in the environment wins.
+The user's settings, written by
+.BR "dictate setup" ,
+over the machine's. Both are KEY="value" lines, and a DICTATE_ variable in the
+environment wins over both.
 .TP
 .I $XDG_RUNTIME_DIR/dictate/state
 The current phase, read by the tray icon and

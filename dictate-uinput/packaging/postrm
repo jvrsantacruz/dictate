@@ -2,7 +2,7 @@
 # Reload udev without the rule. uaccess only ever adds an ACL, so the access
 # already given stays on the node until the next boot.
 set -e
-if [ "$1" = remove ] && command -v udevadm >/dev/null 2>&1; then
+if [ "$1" = remove ] && command -v udevadm >/dev/null 2>&1 && [ -d /run/udev ]; then
     udevadm control --reload-rules || true
 fi
 exit 0

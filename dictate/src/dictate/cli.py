@@ -6,7 +6,7 @@ dictate status          print recording or idle
 dictate engine --ibus   the IBus engine; IBus starts it
 dictate engines         the engine's description, on the user's layout; IBus
                         runs it
-dictate component PATH  print the IBus component file, PATH the program
+dictate component PATH [VERSION]  print the IBus component file, PATH the program
 dictate setup ...       set up this user: dictate setup --help
 """
 
@@ -65,7 +65,9 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
     if command == "component":
         from dictate.gnome.component import xml  # noqa: PLC0415
 
-        print(xml(args[1] if len(args) > 1 else "/usr/bin/dictate"), end="")
+        program = args[1] if len(args) > 1 else "/usr/bin/dictate"
+        version = args[2] if len(args) > 2 else "0"  # noqa: PLR2004
+        print(xml(program, version), end="")
         return 0
     if command == "engines":
         return _engines()

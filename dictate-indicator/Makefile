@@ -5,7 +5,10 @@ PYTHON  ?= /usr/bin/python3
 ARTIFACT = dist/dictate-indicator
 STAGE    = build/zipapp
 TOOLS    = ../tools
+# Outside a git checkout, such as a release tarball: make VERSION=X.Y.Z SOURCE_DATE_EPOCH=N deb
+ifeq ($(origin VERSION),undefined)
 VERSION := $(shell $(TOOLS)/deb-version v .)
+endif
 DEB      = dist/dictate-indicator_$(VERSION)_all.deb
 ROOT     = build/deb
 

@@ -7,7 +7,10 @@ PYTHON   ?= /usr/bin/python3
 ARTIFACT  = dist/dictate
 STAGE     = build/zipapp
 TOOLS     = ../tools
-VERSION  := $(shell $(TOOLS)/deb-version v .)
+# Outside a git checkout, such as a release tarball: make VERSION=X.Y.Z SOURCE_DATE_EPOCH=N deb
+ifeq ($(origin VERSION),undefined)
+VERSION := $(shell $(TOOLS)/deb-version v .)
+endif
 DEB       = dist/dictate_$(VERSION)_all.deb
 ROOT      = build/deb
 
@@ -22,7 +25,7 @@ help:
 ##              change gives an identical file.
 ##
 ## Staged rather than packed from src/, for the reasons in
-## apps/dictate-indicator/Makefile: one fixed time, fixed modes, UTC, and only
+## ../dictate-indicator/Makefile: one fixed time, fixed modes, UTC, and only
 ## the source, so byte code and editor files stay out. The interpreter is
 ## named, not looked up: IBus runs the engine with ~/.local/bin first on PATH,
 ## and a python installed there by uv has no `gi`.
@@ -47,7 +50,7 @@ deb: build
 	install -Dm755 $(ARTIFACT) $(ROOT)/usr/bin/dictate
 	install -Dm755 data/dictate-status $(ROOT)/usr/bin/dictate-status
 	install -d $(ROOT)/usr/share/ibus/component
-	$(ARTIFACT) component /usr/bin/dictate > $(ROOT)/usr/share/ibus/component/dictate.xml
+	$(ARTIFACT) component /usr/bin/dictate $(VERSION) > $(ROOT)/usr/share/ibus/component/dictate.xml
 	install -Dm644 packaging/dictate.1 $(ROOT)/usr/share/man/man1/dictate.1
 	install -Dm644 packaging/dictate-status.1 $(ROOT)/usr/share/man/man1/dictate-status.1
 	install -Dm644 packaging/copyright $(ROOT)/usr/share/doc/dictate/copyright

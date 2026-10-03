@@ -12,7 +12,8 @@ Description: let the user at the seat type through /dev/uinput, for dictate
  dictate press keys through ydotool, which needs that access.
  .
  This package is the whole of the grant, so installing it is the choice to
- make it. The access holds across a user switch: a virtual keyboard opened
- under it keeps working in the next session. Where uinput is a kernel
+ make it. It is a virtual keyboard for every program the seat user runs, and
+ it holds across a user switch: one opened under it keeps typing in the next
+ session. Not for a machine several people share. Where uinput is a kernel
  module rather than built in, the grant takes effect at the next boot; Ubuntu
  builds it in.

@@ -2,7 +2,9 @@
 # Apply the rule now, so the user at the seat can write to /dev/uinput
 # without a reboot. Nothing else.
 set -e
-if [ "$1" = configure ] && command -v udevadm >/dev/null 2>&1; then
+# Not inside a chroot or an image build: the trigger would reach the host.
+if [ "$1" = configure ] && command -v udevadm >/dev/null 2>&1 \
+    && [ -d /run/udev ] && ! { command -v ischroot >/dev/null 2>&1 && ischroot; }; then
     udevadm control --reload-rules || true
     if [ -e /dev/uinput ]; then
         udevadm trigger --settle --name-match=uinput || true

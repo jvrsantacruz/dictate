@@ -2,7 +2,10 @@
 # admin's consent to the grant.
 
 TOOLS    = ../tools
+# Outside a git checkout, such as a release tarball: make VERSION=X.Y.Z SOURCE_DATE_EPOCH=N deb
+ifeq ($(origin VERSION),undefined)
 VERSION := $(shell $(TOOLS)/deb-version v .)
+endif
 DEB      = dist/dictate-uinput_$(VERSION)_all.deb
 ROOT     = build/deb
 

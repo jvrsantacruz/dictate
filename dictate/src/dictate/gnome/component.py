@@ -19,7 +19,7 @@ ENGINE = "dictate"
 _LAYOUT = re.compile(r"[a-z0-9_]+(\+[a-z0-9_-]+)?")
 
 
-def xml(program: str) -> str:
+def xml(program: str, version: str = "0") -> str:
     """The component, with `program` as the engine and as its describer."""
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <!-- Installed by the dictate package. -->
@@ -27,7 +27,7 @@ def xml(program: str) -> str:
   <name>{NAME}</name>
   <description>Dictation: inserts text, types like the plain layout</description>
   <exec>{escape(program)} engine --ibus</exec>
-  <version>0.1.0</version>
+  <version>{escape(version)}</version>
   <author>jvrsantacruz</author>
   <license>GPL-3.0-or-later</license>
   <homepage>https://github.com/jvrsantacruz/dictate</homepage>

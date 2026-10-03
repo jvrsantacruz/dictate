@@ -12,9 +12,13 @@ root=$1 control=$2 out=$3
 version=${VERSION:?VERSION is the package version}
 name=$(awk -F': ' '$1 == "Package" { print $2 }' "$control")
 maintainer=$(awk -F': ' '$1 == "Maintainer" { print $2 }' "$control")
-# An application with no commit of its own yet takes the repository's last.
-dir_epoch=$(git log -1 --format=%ct -- .)
-export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-${dir_epoch:-$(git log -1 --format=%ct)}}
+# The last commit to the application, or the repository's while it has none.
+# Given, git is not asked: a release tarball has no .git.
+if [[ -z ${SOURCE_DATE_EPOCH:-} ]]; then
+  dir_epoch=$(git log -1 --format=%ct -- .)
+  SOURCE_DATE_EPOCH=${dir_epoch:-$(git log -1 --format=%ct)}
+fi
+export SOURCE_DATE_EPOCH
 stamp=$(date -u -d "@$SOURCE_DATE_EPOCH" -R)
 
 doc="$root/usr/share/doc/$name"

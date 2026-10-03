@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import ast
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -38,6 +39,9 @@ TRAY_UNIT = "dictate-indicator.service"
 KEY_UNIT = "ydotool.service"
 ENGINE_WAIT = 15.0
 DEFAULT_SHORTCUTS = {"en": "<Super>i", "es": "<Super>e"}
+DEFAULT_LANGUAGES = ("en", "es")
+SHORTCUT_KEY = "DICTATE_SHORTCUT_"
+LANGUAGE = re.compile(r"[a-z]{2,3}")
 LANGUAGE_NAMES = {"en": "English", "es": "Spanish", "fr": "French", "de": "German"}
 FLAGS = {
     "method": "DICTATE_METHOD",
@@ -114,9 +118,20 @@ def merge_paths(
     return kept + mine, stale
 
 
-def shortcuts(langs: Sequence[str], given: Sequence[str]) -> dict[str, str]:
-    """Each language's key, from `LANG=KEYS` arguments over the defaults."""
-    keys = {lang: DEFAULT_SHORTCUTS.get(lang, "") for lang in langs}
+def shortcuts(
+    langs: Sequence[str], given: Sequence[str], saved: dict[str, str] | None = None
+) -> dict[str, str]:
+    """Each language's key: `LANG=KEYS` arguments, over saved ones, over defaults."""
+    for lang in langs:
+        if not LANGUAGE.fullmatch(lang):
+            msg = f"not a language code: {lang}"
+            raise SetupError(msg)
+    saved = saved or {}
+    keys = {
+        lang: saved.get(f"{SHORTCUT_KEY}{lang.upper()}")
+        or DEFAULT_SHORTCUTS.get(lang, "")
+        for lang in langs
+    }
     for item in given:
         lang, sep, binding = item.partition("=")
         if not sep or lang not in keys or not binding:
@@ -185,36 +200,57 @@ def _read(path: Path) -> str | None:
         return None
 
 
-def _config(s: Session, args: argparse.Namespace, layout: str) -> config.Config:
-    """Write the config file; return what it now holds, checked."""
-    path = config.default_path(os.environ)
-    before = config.parse_file(_read(path) or "")
-    values = dict(before)
+def _user_values(args: argparse.Namespace, layout: str | None) -> dict[str, str]:
+    """The user's file with what this run was told, and nothing else.
+
+    A value the run was not given is left out, so the machine's
+    `/etc/dictate/config` keeps applying under it, and a later run with no
+    arguments changes nothing the user set before.
+    """
+    values = config.parse_file(_read(config.default_path(os.environ)) or "")
     for flag, key in FLAGS.items():
         value = getattr(args, flag)
         if value is not None:
             values[key] = str(value)
-    values["DICTATE_LAYOUT"] = layout
-    values["DICTATE_LANGUAGES"] = " ".join(args.languages)
     if args.sound is not None:
         values["DICTATE_SOUND"] = "true" if args.sound == "true" else "false"
+    if args.languages:
+        values["DICTATE_LANGUAGES"] = " ".join(args.languages)
+    for item in args.shortcut:
+        lang, _, binding = item.partition("=")
+        values[f"{SHORTCUT_KEY}{lang.upper()}"] = binding
+    if layout is not None:
+        values["DICTATE_LAYOUT"] = layout
     for key, value in values.items():
         if '"' in value or "\n" in value:
             msg = f"{key} cannot hold a double quote or a newline"
             raise SetupError(msg)
-    try:
-        checked = config.build(values)
-    except config.ConfigError as err:
-        raise SetupError(str(err)) from err
+    return values
+
+
+def _effective(user: dict[str, str]) -> dict[str, str]:
+    """The machine's values, these user values over them, the environment over both."""
+    merged = config.parse_file(_read(config.system_path(os.environ)) or "")
+    merged.update(user)
+    merged.update({k: v for k, v in os.environ.items() if k.startswith("DICTATE_")})
+    return merged
+
+
+def _write_config(s: Session, values: dict[str, str]) -> None:
+    """Write the user's file, readable by the user only: it may name a key command."""
+    path = config.default_path(os.environ)
     text = render_config(values)
-    if _read(path) != text:
-        s.change(f"config {path}")
-        if not s.dry_run:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(".tmp")
-            tmp.write_text(text, encoding="utf-8")
-            tmp.replace(path)
-    return checked
+    if _read(path) == text:
+        return
+    s.change(f"config {path}")
+    if s.dry_run:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as out:
+        out.write(text)
+    tmp.replace(path)
 
 
 def _engine_listed(s: Session) -> bool:
@@ -448,7 +484,10 @@ def _ydotool_warning(s: Session, method: str) -> None:
         s.out(f"warning {method} needs ydotool 1.0 or later, this is {version}")
 
 
-def _layout(s: Session, given: str) -> str:
+def _layout(s: Session, given: str, configured: str | None) -> str:
+    """The layout asked for, else the one configured, else the user's first."""
+    if given == "auto" and configured:
+        given = configured
     layout = pick_layout(parse_variant(s.get(*SOURCES)), given)
     if not valid_layout(layout):
         msg = f"not an XKB layout id: {layout}"
@@ -463,7 +502,12 @@ def parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--method", choices=config.METHODS)
     p.add_argument("--layout", default="auto", help="XKB id, or auto: the user's first")
-    p.add_argument("--languages", nargs="+", default=["en", "es"], metavar="LANG")
+    p.add_argument(
+        "--languages",
+        nargs="+",
+        metavar="LANG",
+        help="default: as set before, or en es",
+    )
     p.add_argument("--shortcut", action="append", default=[], metavar="LANG=KEYS")
     p.add_argument("--notify", choices=config.NOTIFY_LEVELS)
     p.add_argument("--sound", choices=("true", "false"))
@@ -505,9 +549,20 @@ def main(argv: Sequence[str]) -> int:
     command = args.command or os.path.realpath(sys.argv[0])
     try:
         _session()
-        keys = shortcuts(args.languages, args.shortcut)
-        layout = _layout(s, args.layout)
-        cfg = _config(s, args, layout)
+        before = _effective(_user_values(args, None))
+        layout = _layout(s, args.layout, before.get("DICTATE_LAYOUT"))
+        given_layout = (
+            layout if args.layout != "auto" or "DICTATE_LAYOUT" not in before else None
+        )
+        user = _user_values(args, given_layout)
+        merged = _effective(user)
+        langs = merged.get("DICTATE_LANGUAGES", " ".join(DEFAULT_LANGUAGES)).split()
+        keys = shortcuts(langs, args.shortcut, merged)
+        try:
+            cfg = config.build(merged)
+        except config.ConfigError as err:
+            raise SetupError(str(err)) from err
+        _write_config(s, user)
         # The engine is this program, whatever the shortcuts are told to run.
         if _ibus(s, layout, program=os.path.realpath(sys.argv[0])):
             _sources(s, layout)

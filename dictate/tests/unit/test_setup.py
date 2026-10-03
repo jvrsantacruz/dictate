@@ -119,3 +119,29 @@ def test_a_dry_run_removes_no_stale_shortcut(monkeypatch) -> None:  # noqa: ANN0
     setup._shortcuts(s, {"en": "<Super>i"}, "/usr/bin/dictate")  # noqa: SLF001
     assert_that([a for a in ran if a[1] != "get"], is_(equal_to([])))
     assert_that(any("removed" in c for c in s.changes), is_(True))
+
+
+def test_saved_shortcuts_are_kept() -> None:
+    saved = {"DICTATE_SHORTCUT_FR": "<Super>f"}
+    assert_that(
+        setup.shortcuts(["en", "fr"], [], saved),
+        is_(equal_to({"en": "<Super>i", "fr": "<Super>f"})),
+    )
+
+
+def test_a_language_code_is_checked() -> None:
+    with pytest.raises(setup.SetupError):
+        setup.shortcuts(["en/../x"], ["en/../x=<Super>x"])
+
+
+def test_the_machines_defaults_survive_a_plain_run(tmp_path, monkeypatch) -> None:  # noqa: ANN001
+    system = tmp_path / "etc"
+    system.write_text('DICTATE_LANGUAGES="en fr"\nDICTATE_METHOD="paste"\n')
+    monkeypatch.setenv("DICTATE_SYSTEM_CONFIG", str(system))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    args = setup.parser().parse_args([])
+    user = setup._user_values(args, None)  # noqa: SLF001
+    merged = setup._effective(user)  # noqa: SLF001
+    assert_that("DICTATE_LANGUAGES" in user, is_(False))
+    assert_that(merged["DICTATE_LANGUAGES"], is_(equal_to("en fr")))
+    assert_that(merged["DICTATE_METHOD"], is_(equal_to("paste")))

@@ -23,13 +23,15 @@ for f in /usr/share/ibus/component/*.xml; do
 done
 
 export ARTIFACT="$artifact" IT_ROOT="$root" DICTATE_ENGINE_LOG="$root/engine.log"
+# The machine running the tests may have its own /etc/dictate/config.
+export DICTATE_SYSTEM_CONFIG="$root/no-system-config"
 export XDG_CONFIG_HOME="$root/config" XDG_DATA_HOME="$root/data"
 export XDG_CACHE_HOME="$root/cache" XDG_STATE_HOME="$root/state" XDG_RUNTIME_DIR="$root/run"
 export GSETTINGS_BACKEND=keyfile IBUS_COMPONENT_PATH="$root/component"
 export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=ubuntu:GNOME
 export WAYLAND_DISPLAY=dictate-it GDK_BACKEND=wayland
 unset DISPLAY DBUS_SESSION_BUS_ADDRESS
-# After the exports, so it reads the private config, which has no file.
+# After the exports, so it reads the private config and no system one.
 "$artifact" component "$artifact" > "$root/component/dictate.xml"
 cd "$here"
 dbus-run-session -- /usr/bin/python3 -m unittest -v "${@:2}" 2>&1 \

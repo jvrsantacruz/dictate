@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dictate: speak into any text field on GNOME</title>
+<meta name="description" content="Dictation into the focused input on GNOME on Wayland. Local transcription with whisper.cpp, inserted by an IBus input method.">
+<meta name="theme-color" content="#F6F1E7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#3A3A3A" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<style>
+@font-face { font-family: "Fraunces"; src: url("fonts/fraunces.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/hanken.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+:root {
+  --bg: #F6F1E7; --surface: #FFFDF8; --line: #E6DCCB; --text: #3A3A3A; --muted: #6F675C;
+  --accent: #A8432C; --on-accent: #FFF8EE;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #3A3A3A; --surface: #4A4740; --line: #5A564E; --text: #F6F1E7; --muted: #C9C2B6; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 400 1rem/1.5 "Hanken Grotesk", system-ui, sans-serif;
+}
+main { max-width: 46rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+header { text-align: center; margin-bottom: 2.5rem; }
+header img { width: 7rem; height: 7rem; }
+h1, h2 { font-family: "Fraunces", Georgia, serif; font-weight: 600; }
+h1 { font-size: 2.4rem; line-height: 1.2; margin: .75rem 0 .5rem; }
+h2 { font-size: 1.5rem; line-height: 1.25; margin: 2.5rem 0 .75rem; }
+.lede { color: var(--muted); font-size: 1.15rem; margin: 0 auto; max-width: 34rem; }
+ul { padding-left: 1.2rem; }
+li { margin: .35rem 0; }
+pre {
+  background: var(--surface); border: 1px solid var(--line); border-radius: .6rem;
+  padding: 1rem; overflow-x: auto; font-size: .88rem; line-height: 1.45;
+}
+code { font-family: ui-monospace, "DejaVu Sans Mono", monospace; }
+a { color: var(--accent); }
+.links { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; }
+.links a {
+  text-decoration: none; padding: .45rem .95rem; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  font-size: .82rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+.links a.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+footer { margin-top: 3rem; color: var(--muted); font-size: .82rem; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <img src="logo.svg" alt="">
+  <h1>dictate</h1>
+  <p class="lede">Speak into any text field on GNOME. Press a shortcut, talk, press it again: the text appears where your cursor was.</p>
+  <nav class="links">
+    <a class="primary" href="#install">Install</a>
+    <a href="https://github.com/jvrsantacruz/dictate#configure">Configure</a>
+    <a href="https://github.com/jvrsantacruz/dictate">Source</a>
+    <a href="https://github.com/jvrsantacruz/dictate/releases/latest">Releases</a>
+  </nav>
+</header>
+
+<h2>What it does</h2>
+<ul>
+  <li><strong>Local.</strong> Speech is transcribed on your machine by whisper.cpp; nothing leaves it unless you point it elsewhere.</li>
+  <li><strong>Into the right field.</strong> An IBus input method inserts the text into the input that had focus when you started. If you moved away, the text waits on the clipboard.</li>
+  <li><strong>Any language whisper knows</strong>, one shortcut each.</li>
+  <li><strong>Status at a glance</strong>: a tray icon that blinks while recording.</li>
+</ul>
+<p>Ubuntu 24.04 or later, GNOME on Wayland.</p>
+
+<h2 id="install">Install</h2>
+<pre><code>sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://jvrsantacruz.github.io/dictate/dictate-archive-keyring.asc \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/dictate.gpg
+sudo tee /etc/apt/sources.list.d/dictate.sources &gt;/dev/null &lt;&lt;'SOURCES'
+Types: deb
+URIs: https://jvrsantacruz.github.io/dictate/apt
+Suites: stable
+Components: main
+Signed-By: /etc/apt/keyrings/dictate.gpg
+SOURCES
+sudo apt update &amp;&amp; sudo apt install dictate dictate-indicator
+dictate setup</code></pre>
+<p>Key fingerprint <code>0A27 F9EB C047 9474 8525 1125 EB2B 57D7 A916 CAFC</code>. You also need a transcriber: see the <a href="https://github.com/jvrsantacruz/dictate#a-transcriber">README</a>.</p>
+
+<footer>dictate is free software under the <a href="https://github.com/jvrsantacruz/dictate/blob/main/LICENSE">GPL-3.0-or-later</a>.</footer>
+</main>
+</body>
+</html>

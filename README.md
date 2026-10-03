@@ -21,38 +21,55 @@ Runs on Ubuntu 24.04 or later, GNOME on Wayland.
 
 ## Install
 
-From the apt repository, which keeps it up to date with the rest of the system:
+From the apt repository, which keeps it up to date with the rest of the system, upgrades by
+unattended-upgrades included:
 
 ```sh
-sudo curl -fsSLo /usr/share/keyrings/dictate-archive-keyring.gpg \
-  https://jvrsantacruz.github.io/dictate/dictate-archive-keyring.gpg
-printf 'Types: deb\nURIs: https://jvrsantacruz.github.io/dictate/apt\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/dictate-archive-keyring.gpg\n' \
-  | sudo tee /etc/apt/sources.list.d/dictate.sources
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://jvrsantacruz.github.io/dictate/dictate-archive-keyring.asc \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/dictate.gpg
+sudo tee /etc/apt/sources.list.d/dictate.sources >/dev/null <<'SOURCES'
+Types: deb
+URIs: https://jvrsantacruz.github.io/dictate/apt
+Suites: stable
+Components: main
+Signed-By: /etc/apt/keyrings/dictate.gpg
+SOURCES
 sudo apt update && sudo apt install dictate dictate-indicator
 ```
 
-Or from the PPA:
+The key's fingerprint is `0A27 F9EB C047 9474 8525  1125 EB2B 57D7 A916 CAFC`; check it with
+`gpg --show-keys /etc/apt/keyrings/dictate.gpg`.
 
-```sh
-sudo add-apt-repository ppa:jvrsantacruz/dictate
-sudo apt install dictate dictate-indicator
-```
-
-Or download the `.deb` files from the [latest release](https://github.com/jvrsantacruz/dictate/releases/latest) and `sudo apt install ./dictate_*.deb ./dictate-indicator_*.deb`.
+Or download the `.deb` files from the
+[latest release](https://github.com/jvrsantacruz/dictate/releases/latest) and
+`sudo apt install ./dictate_*.deb ./dictate-indicator_*.deb`.
 
 ### A transcriber
 
-dictate sends audio to a whisper server on `http://127.0.0.1:8081`. On Ubuntu 26.04:
+dictate sends audio to a whisper server on `http://127.0.0.1:8081`. Ubuntu 26.04 packages one:
 
 ```sh
 sudo apt install whisper.cpp
-mkdir -p ~/.local/share/whisper
+mkdir -p ~/.local/share/whisper ~/.config/systemd/user
 curl -fsSLo ~/.local/share/whisper/ggml-base-q5_1.bin \
   https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin
-whisper-server -m ~/.local/share/whisper/ggml-base-q5_1.bin --host 127.0.0.1 --port 8081
+tee ~/.config/systemd/user/whisper-server.service >/dev/null <<'UNIT'
+[Unit]
+Description=whisper.cpp transcription server for dictate
+
+[Service]
+ExecStart=/usr/bin/whisper-server -m %h/.local/share/whisper/ggml-base-q5_1.bin --host 127.0.0.1 --port 8081
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+UNIT
+systemctl --user enable --now whisper-server
 ```
 
-Any OpenAI-compatible transcription endpoint works too: see [Configure](#configure).
+Ubuntu 24.04 has no whisper.cpp package: [build it](https://github.com/ggml-org/whisper.cpp#quick-start),
+or use any OpenAI-compatible transcription endpoint, see [Configure](#configure).
 
 ## Configure
 
@@ -64,17 +81,28 @@ dictate setup
 
 It adds the input method, binds <kbd>Super</kbd>+<kbd>I</kbd> to English and <kbd>Super</kbd>+<kbd>E</kbd> to Spanish, writes `~/.config/dictate/config`, and starts the tray icon. It only changes what differs, so run it again after an upgrade or to change a setting. `dictate setup --help` lists every option; `--dry-run` shows the changes without making them.
 
-| Setting | Values | Default |
-|---|---|---|
-| `--method` | `ime` inserts through the input method; `paste` and `type` press keys; `clipboard` only copies | `ime` |
-| `--languages`, `--shortcut LANG=KEYS` | whisper language codes and their shortcuts | `en es` |
-| `--notify` | `all`, `failures`, `none` | `failures` |
-| `--sound` | a cue before and after recording | `false` |
-| `--backend`, `--url`, `--key-cmd` | `local` whisper-server, or `openai` with a command that prints the key | `local` |
+| Option | Key | Values | Default |
+|---|---|---|---|
+| `--method` | `DICTATE_METHOD` | `ime` inserts through the input method; `paste` and `type` press keys; `clipboard` only copies | `ime` |
+| `--languages` | `DICTATE_LANGUAGES` | whisper language codes, space separated | `en es` |
+| `--shortcut LANG=KEYS` | `DICTATE_SHORTCUT_<LANG>` | a GNOME accelerator, such as `<Super>f` | `<Super>i`, `<Super>e` |
+| `--notify` | `DICTATE_NOTIFY` | `all`, `failures`, `none` | `failures` |
+| `--sound` | `DICTATE_SOUND` | a cue before and after recording, `true` or `false` | `false` |
+| `--backend` | `DICTATE_BACKEND` | `local` whisper-server, or `openai` | `local` |
+| `--url` | `DICTATE_URL` | the server; `https` unless it is on this machine | `http://127.0.0.1:8081` |
+| `--key-cmd` | `DICTATE_KEY_CMD` | a command printing the API key on its first line, for `openai` | none |
+| `--max-secs` | `DICTATE_MAX_SECS` | the longest recording | `120` |
 
-An admin can set defaults for every user in `/etc/dictate/config`, the same `KEY="value"` lines as the user's file, which wins over it.
+Settings are read from three places, each over the one before: `/etc/dictate/config`, which an
+admin may write for every user and the package never ships; `~/.config/dictate/config`, which
+`dictate setup` writes; and `DICTATE_*` variables in the environment. Both files are
+`KEY="value"` lines with the keys above. Running `dictate setup` again keeps what you set before.
 
-`paste` and `type` press keys through [ydotool](https://github.com/ReimuNotMoe/ydotool) 1.0 or later, which needs write access to `/dev/uinput`. Installing `dictate-uinput` grants it to the user at the seat; it is separate because that access is a choice.
+`paste` and `type` press keys through [ydotool](https://github.com/ReimuNotMoe/ydotool) 1.0 or
+later, which needs write access to `/dev/uinput`. Installing `dictate-uinput` grants it to the
+user at the seat. It is a package of its own because that access is a choice: it is a virtual
+keyboard for every program that user runs, and it outlasts a switch to another user, so it is not
+for a machine people share. `ime`, the default, needs none of it.
 
 ## Use
 

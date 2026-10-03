@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# apt-repo OUT DEB... - a signed apt repository of DEBs, in OUT.
+#
+#   OUT/pool/main/*.deb
+#   OUT/dists/stable/{Release,InRelease,Release.gpg}
+#   OUT/dists/stable/main/binary-{all,amd64,arm64}/Packages{,.gz}
+#
+# Every package is Architecture: all. Listed for amd64 and arm64 too, so apt
+# on those machines finds them without depending on binary-all support, and a
+# machine with i386 enabled gets no notice about a missing architecture.
+#
+# Signs with the key in the agent: GNUPGHOME and a passphrase, if any, in
+# APT_SIGNING_KEY_PASSPHRASE.
+set -euo pipefail
+out=$1
+shift
+pool="$out/pool/main"
+dist="$out/dists/stable"
+mkdir -p "$pool"
+cp "$@" "$pool/"
+for arch in all amd64 arm64; do
+  dir="$dist/main/binary-$arch"
+  mkdir -p "$dir"
+  (cd "$out" && apt-ftparchive packages pool) > "$dir/Packages"
+  gzip -9 -n -k -f "$dir/Packages"
+done
+apt-ftparchive \
+  -o APT::FTPArchive::Release::Origin=dictate \
+  -o APT::FTPArchive::Release::Label=dictate \
+  -o APT::FTPArchive::Release::Suite=stable \
+  -o APT::FTPArchive::Release::Codename=stable \
+  -o APT::FTPArchive::Release::Architectures="all amd64 arm64" \
+  -o APT::FTPArchive::Release::Components=main \
+  -o APT::FTPArchive::Release::Description="dictate, dictation for GNOME on Wayland" \
+  release "$dist" > "$dist/Release.tmp"
+mv "$dist/Release.tmp" "$dist/Release"
+sign=(gpg --batch --yes --pinentry-mode loopback --digest-algo SHA512)
+if [[ -n ${APT_SIGNING_KEY_PASSPHRASE:-} ]]; then
+  sign+=(--passphrase-fd 0)
+fi
+printf '%s' "${APT_SIGNING_KEY_PASSPHRASE:-}" | "${sign[@]}" --clearsign -o "$dist/InRelease" "$dist/Release"
+printf '%s' "${APT_SIGNING_KEY_PASSPHRASE:-}" | "${sign[@]}" --detach-sign --armor -o "$dist/Release.gpg" "$dist/Release"
+echo "$out"

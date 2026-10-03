@@ -1,0 +1,79 @@
+---
+name: "Release"
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+
+permissions:
+  contents: "read"
+
+env:
+  UV_LOCKED: "1"
+
+jobs:
+  build:
+    runs-on: "ubuntu-24.04"
+    steps:
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: "Build and check the packages"
+        run: "make deb-check"
+      - uses: "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"  # v7.0.1
+        with:
+          name: "debs"
+          path: "*/dist/*.deb"
+
+  release:
+    runs-on: "ubuntu-24.04"
+    needs: "build"
+    permissions:
+      contents: "write"
+    steps:
+      - uses: "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"  # v8.0.1
+        with:
+          name: "debs"
+          path: "debs"
+      - uses: "softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64"  # v3.0.3
+        with:
+          files: "debs/*/dist/*.deb"
+          generate_release_notes: true
+
+  pages:
+    runs-on: "ubuntu-24.04"
+    needs: "build"
+    permissions:
+      pages: "write"
+      id-token: "write"
+    environment:
+      name: "github-pages"
+      url: "${{ steps.deploy.outputs.page_url }}"
+    steps:
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"  # v8.0.1
+        with:
+          name: "debs"
+          path: "debs"
+      - name: "Install apt-ftparchive"
+        run: "sudo apt-get update && sudo apt-get install -y apt-utils"
+      - name: "Import the signing key"
+        env:
+          APT_SIGNING_KEY: "${{ secrets.APT_SIGNING_KEY }}"
+        run: |-
+          printf '%s\n' "$APT_SIGNING_KEY" | gpg --batch --import
+      - name: "Build the site and the signed apt repository"
+        env:
+          APT_SIGNING_KEY_PASSPHRASE: "${{ secrets.APT_SIGNING_KEY_PASSPHRASE }}"
+        run: |-
+          mkdir -p _site
+          cp -r site/. _site/
+          cp docs/logo.svg docs/dictate-archive-keyring.asc _site/
+          tools/apt-repo _site/apt debs/*/dist/*.deb
+      - uses: "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d"  # v6.0.0
+      - uses: "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9"  # v5.0.0
+      - id: "deploy"
+        uses: "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346"  # v5.0.1

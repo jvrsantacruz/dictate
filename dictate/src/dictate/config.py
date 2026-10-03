@@ -14,6 +14,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -72,6 +73,20 @@ def default_path(environ: Mapping[str, str]) -> Path:
     return Path(base) / "dictate" / "config"
 
 
+LOOPBACK = ("127.0.0.1", "::1", "localhost")
+
+
+def _check_url(url: str) -> None:
+    """Allow http or https only, and https off this machine: the audio is a voice."""
+    parts = urlsplit(url)
+    if parts.scheme not in {"http", "https"} or not parts.hostname:
+        msg = f"DICTATE_URL must be an http or https URL: {url}"
+        raise ConfigError(msg)
+    if parts.scheme == "http" and parts.hostname not in LOOPBACK:
+        msg = f"DICTATE_URL must use https off this machine: {url}"
+        raise ConfigError(msg)
+
+
 def build(values: Mapping[str, str]) -> Config:
     """Turn raw values into a `Config`, refusing a method or sender it cannot run.
 
@@ -93,13 +108,15 @@ def build(values: Mapping[str, str]) -> Config:
     except ValueError as err:
         msg = f"DICTATE_MAX_SECS is not a number: {values['DICTATE_MAX_SECS']}"
         raise ConfigError(msg) from err
+    url = values.get("DICTATE_URL", d.url)
+    _check_url(url)
     if max_secs <= 0:
         # timeout 0 means no limit, which is what the cap is there to prevent.
         msg = f"DICTATE_MAX_SECS must be above 0, not {max_secs}"
         raise ConfigError(msg)
     return Config(
         backend=values.get("DICTATE_BACKEND", d.backend),
-        url=values.get("DICTATE_URL", d.url),
+        url=url,
         model=values.get("DICTATE_MODEL", d.model),
         key_cmd=values.get("DICTATE_KEY_CMD", d.key_cmd),
         method=method,
@@ -120,19 +137,24 @@ def _read(path: Path) -> dict[str, str]:
         return {}
 
 
+def system_path(environ: Mapping[str, str]) -> Path:
+    """The machine's file. DICTATE_SYSTEM_CONFIG moves it, for tests."""
+    return Path(environ.get("DICTATE_SYSTEM_CONFIG") or SYSTEM_PATH)
+
+
 def raw(
-    environ: Mapping[str, str] | None = None, system: Path = SYSTEM_PATH
+    environ: Mapping[str, str] | None = None, system: Path | None = None
 ) -> dict[str, str]:
     """The machine's values, the user's over them, the environment's over both."""
     env = os.environ if environ is None else environ
-    values = _read(system)
+    values = _read(system or system_path(env))
     values.update(_read(default_path(env)))
     values.update({k: v for k, v in env.items() if k.startswith("DICTATE_")})
     return values
 
 
 def load(
-    environ: Mapping[str, str] | None = None, system: Path = SYSTEM_PATH
+    environ: Mapping[str, str] | None = None, system: Path | None = None
 ) -> Config:
     """Read the files, then let the environment override them."""
     return build(raw(environ, system))

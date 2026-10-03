@@ -7,6 +7,7 @@ import json
 import re
 import shlex
 import subprocess
+import unicodedata
 import urllib.request
 import uuid
 from typing import TYPE_CHECKING
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from dictate.config import Config
 
 TIMEOUT = 300
+KEY_TIMEOUT = 30
 # Whisper labels non-speech as [BLANK_AUDIO], (wind blowing) and similar. A
 # transcript that is nothing but such tags means nothing was said.
 # One place for whitespace between tags, so the match cannot backtrack.
@@ -47,13 +49,49 @@ def multipart(fields: dict[str, str], audio: bytes) -> tuple[bytes, str]:
 
 
 def clean(text: str) -> str:
-    """One line of text, or empty when it holds no speech.
+    """One line of printable text, or empty when it holds no speech.
 
     Whisper splits a longer utterance into segments on separate lines. Dictated
     speech is one sentence stream, and a newline typed into a chat sends it.
+    Every control and format character goes too: the text is typed into
+    terminals, where one such byte can run a line or reorder what is shown.
     """
     text = " ".join(text.split())
+    text = "".join(c for c in text if not unicodedata.category(c).startswith("C"))
     return "" if NONSPEECH.match(text) else text
+
+
+def _key(cfg: Config) -> str:
+    """The API key the key command prints: its first line, checked.
+
+    No message here quotes what the command printed, so a key never reaches a
+    notification or a log.
+    """
+    try:
+        done = subprocess.run(
+            shlex.split(cfg.key_cmd), capture_output=True, text=True,
+            timeout=KEY_TIMEOUT, check=False,
+        )  # fmt: skip
+    except (OSError, ValueError, subprocess.SubprocessError) as err:
+        msg = f"DICTATE_KEY_CMD could not run: {type(err).__name__}"
+        raise TranscribeError(msg) from None
+    if done.returncode != 0:
+        msg = f"DICTATE_KEY_CMD exited {done.returncode}"
+        raise TranscribeError(msg)
+    lines = done.stdout.strip().splitlines()
+    key = lines[0].strip() if lines else ""
+    if not key or any(c.isspace() or not c.isprintable() for c in key):
+        msg = "DICTATE_KEY_CMD printed no usable key on its first line"
+        raise TranscribeError(msg)
+    return key
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects: one would carry the key to another host."""
+
+    def redirect_request(self, *_args: object, **_kwargs: object) -> None:
+        msg = "the backend answered with a redirect, which is refused"
+        raise TranscribeError(msg)
 
 
 def request(cfg: Config, lang: str, wav: Path) -> tuple[str, dict[str, str], bytes]:
@@ -67,12 +105,7 @@ def request(cfg: Config, lang: str, wav: Path) -> tuple[str, dict[str, str], byt
         if not cfg.key_cmd:
             msg = "openai backend needs DICTATE_KEY_CMD"
             raise TranscribeError(msg)
-        key = subprocess.run(
-            shlex.split(cfg.key_cmd), capture_output=True, text=True, check=False
-        ).stdout.strip()
-        if not key:
-            msg = "DICTATE_KEY_CMD printed no key"
-            raise TranscribeError(msg)
+        key = _key(cfg)
         fields = {"model": cfg.model, "language": lang, "response_format": "json"}
         body, ctype = multipart(fields, audio)
         headers = {"Content-Type": ctype, "Authorization": f"Bearer {key}"}
@@ -89,12 +122,16 @@ def transcribe(cfg: Config, lang: str, wav: Path) -> str:
         msg = f"could not build the request: {err}"
         raise TranscribeError(msg) from err
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")  # noqa: S310
+    opener = urllib.request.build_opener(_NoRedirect)
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:  # noqa: S310
+        with opener.open(req, timeout=TIMEOUT) as resp:
             payload = resp.read()
-    except (OSError, http.client.HTTPException) as err:
-        msg = f"backend request failed: {err}"
-        raise TranscribeError(msg) from err
+    except (OSError, http.client.HTTPException, ValueError) as err:
+        # The type only: a ValueError from http.client can quote the headers.
+        msg = f"backend request failed: {type(err).__name__}"
+        if isinstance(err, OSError):
+            msg = f"backend request failed: {err}"
+        raise TranscribeError(msg) from None
     try:
         text = json.loads(payload).get("text", "")
     except (ValueError, AttributeError) as err:

@@ -24,6 +24,9 @@ from dictate.gnome.focus import Tracker  # noqa: E402
 
 log = logging.getLogger(__name__)
 
+# IBus input purposes of fields that hold secrets: password and PIN.
+SECRET_PURPOSES = (8, 9)
+
 tracker = Tracker()
 engines: dict[int, Engine] = {}
 
@@ -96,6 +99,9 @@ def _on_call(
     if method == "Commit":
         text, token = params.unpack()
         holder = tracker.may_commit(token)
+        if holder is not None and tracker.purposes.get(holder) in SECRET_PURPOSES:
+            # Never into a password or PIN field.
+            holder = None
         engine = engines.get(holder) if holder is not None else None
         if engine is not None:
             engine.commit_text(IBus.Text.new_from_string(text))
@@ -125,7 +131,9 @@ def run() -> int:
     Gio.bus_own_name(
         Gio.BusType.SESSION,
         engine_bus.NAME,
-        Gio.BusNameOwnerFlags.REPLACE | Gio.BusNameOwnerFlags.ALLOW_REPLACEMENT,
+        # REPLACE takes the name from an older engine; without
+        # ALLOW_REPLACEMENT no other process can take it from this one.
+        Gio.BusNameOwnerFlags.REPLACE,
         _on_bus,
         None,
         None,

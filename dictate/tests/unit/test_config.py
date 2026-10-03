@@ -67,9 +67,11 @@ def test_the_environment_wins_over_the_file(tmp_path: Path) -> None:
 
 
 def test_a_missing_file_gives_defaults(tmp_path: Path) -> None:
-    assert_that(
-        config.load({"XDG_CONFIG_HOME": str(tmp_path)}), is_(equal_to(config.Config()))
-    )
+    env = {
+        "XDG_CONFIG_HOME": str(tmp_path),
+        "DICTATE_SYSTEM_CONFIG": str(tmp_path / "no"),
+    }
+    assert_that(config.load(env), is_(equal_to(config.Config())))
 
 
 def test_the_user_file_wins_over_the_machines(tmp_path: Path) -> None:
@@ -86,3 +88,19 @@ def test_without_files_the_defaults_hold(tmp_path: Path) -> None:
     assert_that(
         config.load(env, system=tmp_path / "none"), is_(equal_to(config.Config()))
     )
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://example.com", "file:///etc/passwd", "ftp://127.0.0.1", "not a url"],
+)
+def test_a_url_that_could_leak_audio_is_refused(url: str) -> None:
+    with pytest.raises(config.ConfigError):
+        config.build({"DICTATE_URL": url})
+
+
+@pytest.mark.parametrize(
+    "url", ["http://127.0.0.1:8081", "http://localhost:9000", "https://api.example.com"]
+)
+def test_loopback_http_and_any_https_are_accepted(url: str) -> None:
+    assert_that(config.build({"DICTATE_URL": url}).url, is_(equal_to(url)))

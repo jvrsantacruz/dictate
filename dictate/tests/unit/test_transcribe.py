@@ -59,3 +59,50 @@ def test_the_openai_backend_reads_the_key_from_the_command(tmp_path: Path) -> No
     url, headers, _ = transcribe.request(cfg, "en", wav)
     assert_that(url, is_(equal_to("http://x:1/v1/audio/transcriptions")))
     assert_that(headers["Authorization"], is_(equal_to("Bearer sk-test")))
+
+
+def test_control_and_format_characters_are_dropped() -> None:
+    assert_that(
+        transcribe.clean("ls\x0f -la\x1b[201~ \u202eok"),
+        is_(equal_to("ls -la[201~ ok")),
+    )
+
+
+def test_a_multi_line_key_command_gives_its_first_line(tmp_path: Path) -> None:
+    script = tmp_path / "key"
+    script.write_text("#!/bin/sh\necho sk-good\necho 'user: me'\n")
+    script.chmod(0o755)
+    cfg = config.Config(backend="openai", url="https://x.example", key_cmd=str(script))
+    assert_that(transcribe._key(cfg), is_(equal_to("sk-good")))  # noqa: SLF001
+
+
+def test_a_failing_key_command_says_so_without_its_output(tmp_path: Path) -> None:
+    script = tmp_path / "key"
+    script.write_text("#!/bin/sh\necho sk-secret\nexit 3\n")
+    script.chmod(0o755)
+    cfg = config.Config(backend="openai", url="https://x.example", key_cmd=str(script))
+    with pytest.raises(transcribe.TranscribeError) as err:
+        transcribe._key(cfg)  # noqa: SLF001
+    assert_that("sk-secret" in str(err.value), is_(False))
+
+
+def test_a_redirect_is_refused() -> None:
+    import http.server  # noqa: PLC0415
+    import threading  # noqa: PLC0415
+
+    class Redirect(http.server.BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            self.send_response(302)
+            self.send_header("Location", "http://127.0.0.1:1/steal")
+            self.end_headers()
+
+        def log_message(self, *_args: object) -> None:
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Redirect)
+    threading.Thread(target=server.handle_request, daemon=True).start()
+    cfg = config.Config(url=f"http://127.0.0.1:{server.server_address[1]}")
+    wav = Path(__file__)
+    with pytest.raises(transcribe.TranscribeError) as err:
+        transcribe.transcribe(cfg, "en", wav)
+    assert_that(str(err.value), contains_string("redirect"))

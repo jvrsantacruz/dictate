@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Fake pw-play: silent, and as long as FAKE_CUE_SECS says.
+sleep "${FAKE_CUE_SECS:-0}"

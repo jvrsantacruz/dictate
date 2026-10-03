@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dictate-indicator"
+version = "0.1.0"
+description = "Tray icon showing whether dictation is recording or transcribing"
+requires-python = ">=3.12"
+license = "GPL-3.0-or-later"
+license-files = ["../LICENSE"]
+authors = [{ name = "Javier Santacruz", email = "javier.santacruz.lc@gmail.com" }]
+# Empty on purpose. The artifact is a zipapp on the system interpreter, and a
+# dependency is the thing that would end that. GTK comes from apt, as `gi`.
+dependencies = []
+
+[project.scripts]
+dictate-indicator = "dictate_indicator.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "pyhamcrest>=2", "pytest-randomly>=3", "ruff>=0.14", "vulture>=2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dictate_indicator = ["icons/*.svg"]
+
+[tool.ruff]
+src = ["src"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "COM812", # trailing comma, the formatter owns this
+  "D203",   # mutually exclusive with D211
+  "D213",   # mutually exclusive with D212
+  "CPY001", # a personal repository carries no copyright header
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+  "S101",   # a test asserts, that is the point
+  "INP001", # the test directory is not a package
+  "D103",   # the test name is the sentence, a docstring would repeat it
+  "S108",   # a literal /tmp path here is an expected value, not a file opened
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.vulture]
+paths = ["src", "tests"]
+min_confidence = 80

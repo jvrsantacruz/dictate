@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dictate"
+version = "0.1.0"
+description = "Dictation: capture, transcribe, and deliver the text to the input in use"
+requires-python = ">=3.12"
+license = "GPL-3.0-or-later"
+license-files = ["../LICENSE"]
+authors = [{ name = "Javier Santacruz", email = "javier.santacruz.lc@gmail.com" }]
+# Empty on purpose. The artifact is a zipapp on the system interpreter, and a
+# dependency is the thing that would end that. IBus and Gio come from apt, as
+# `gi`, and only the GNOME adapter imports them.
+dependencies = []
+
+[project.scripts]
+dictate = "dictate.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "pyhamcrest>=2", "pytest-randomly>=3", "ruff>=0.14", "vulture>=2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+src = ["src"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "COM812", # trailing comma, the formatter owns this
+  "D203",   # mutually exclusive with D211
+  "D213",   # mutually exclusive with D212
+  "CPY001", # a personal repository carries no copyright header
+  "S603",   # every subprocess here runs a fixed tool with an argument list
+  "S607",   # tools are found on PATH on purpose: the tests put fakes first
+  "D401",   # a docstring may say what a value is, not only what a call does
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+  "S101",   # a test asserts, that is the point
+  "INP001", # the test directory is not a package
+  "D103",   # the test name is the sentence, a docstring would repeat it
+  "S108",   # a literal /tmp path here is an expected value, not a file opened
+  "PLR2004", # a test compares against literal values
+  "D101",   # a fake's name says what it fakes
+  "D102",
+  "S105",   # a focus token is not a password
+]
+# The command line's output is the person's: usage and failures go to stderr.
+"src/dictate/{cli,dictation}.py" = ["T201"]
+"src/dictate/gnome/setup.py" = ["T201"]
+# Run on the system interpreter, under unittest: they need `gi`, which the
+# development venv does not have.
+"tests/integration/*" = [
+  "S101", "INP001", "D101", "D102", "D103", "PT009", "PT027", "ANN", "PLR2004",
+  "S310", "T201", "FBT003", "N802", "D107",
+]
+"tests/fakes/*" = ["INP001", "D", "T201", "S108"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests/unit"]
+
+[tool.vulture]
+paths = ["src", "tests/unit"]
+min_confidence = 80

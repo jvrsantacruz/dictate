@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# dictate-status - render the dictation state as a tmux status segment.
+#
+# Prints nothing when idle, so the segment costs no width until it is needed.
+# Meant for `status-left` with `status-interval 1`; dictate also calls
+# `tmux refresh-client -S` on every transition, so the marker tracks the
+# keypress rather than the next tick.
+#
+# This exists because a desktop notification does not draw over a fullscreen
+# terminal.
+
+set -uo pipefail
+
+# Never /tmp: a directory there could be another user's, made first.
+STATEFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dictate/state"
+[[ -r $STATEFILE ]] || exit 0
+read -r phase started lang < "$STATEFILE" 2>/dev/null || exit 0
+[[ -n ${phase:-} ]] || exit 0
+
+now=$(date +%s)
+elapsed=$(( now - ${started:-now} ))
+(( elapsed < 0 )) && elapsed=0
+
+case "$phase" in
+  capturing)
+    # Red, and counting up, so a recording left running is obvious rather than
+    # merely indicated.
+    printf '#[fg=#ffffff,bg=#ff3b30,bold] REC %s %d:%02d #[default] ' \
+      "${lang^^}" "$(( elapsed / 60 ))" "$(( elapsed % 60 ))"
+    ;;
+  transcribing)
+    # Amber and turning, so a slow transcription reads as working rather than
+    # as a stuck red dot.
+    # An array, and the backslash double quoted: in single quotes shellcheck
+    # reads it as a failed attempt to escape the quote.
+    frames=('|' '/' '-' "\\")
+    printf '#[fg=#1c1c1e,bg=#ff9500,bold] %s %s #[default] ' \
+      "${frames[now % 4]}" "${lang^^}"
+    ;;
+esac

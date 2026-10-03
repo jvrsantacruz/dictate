@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# deb-build ROOT CONTROL OUT - pack ROOT, a staged filesystem tree, into OUT.
+#
+# CONTROL is the package's control file with @VERSION@ and no Installed-Size,
+# which is measured here. ROOT may hold DEBIAN/postinst and DEBIAN/postrm.
+# What debhelper would otherwise do is done here, and only that: the
+# changelog, the md5sums, file modes, and one fixed time on every file, the
+# last commit to the application's directory, so the same source gives the
+# same bytes whatever else the repository did since.
+set -euo pipefail
+root=$1 control=$2 out=$3
+version=${VERSION:?VERSION is the package version}
+name=$(awk -F': ' '$1 == "Package" { print $2 }' "$control")
+maintainer=$(awk -F': ' '$1 == "Maintainer" { print $2 }' "$control")
+# An application with no commit of its own yet takes the repository's last.
+dir_epoch=$(git log -1 --format=%ct -- .)
+export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-${dir_epoch:-$(git log -1 --format=%ct)}}
+stamp=$(date -u -d "@$SOURCE_DATE_EPOCH" -R)
+
+doc="$root/usr/share/doc/$name"
+mkdir -p "$doc" "$root/DEBIAN"
+printf '%s (%s) unstable; urgency=medium\n\n  * Built from https://github.com/jvrsantacruz/dictate.\n\n -- %s  %s\n' \
+  "$name" "$version" "$maintainer" "$stamp" | gzip -9 -n > "$doc/changelog.gz"
+find "$root/usr/share/man" -type f -name '*.[0-9]' -exec gzip -9 -n {} + 2>/dev/null || true
+
+# Modes first, so md5sums and the size see the final tree.
+chmod -R u=rwX,go=rX "$root"
+find "$root/usr/bin" -type f -exec chmod 0755 {} + 2>/dev/null || true
+for script in postinst postrm prerm preinst; do
+  [[ -f $root/DEBIAN/$script ]] && chmod 0755 "$root/DEBIAN/$script"
+done
+
+# As dpkg-gencontrol counts it: each file's size rounded up to a KiB, and
+# one KiB for every directory or link. du would count the filesystem's blocks.
+size=$(cd "$root" && find . -path ./DEBIAN -prune -o -mindepth 1 -printf '%y %s\n' \
+  | awk '$1 == "f" { kib += int(($2 + 1023) / 1024); next } { kib += 1 } END { print kib + 0 }')
+sed -e "s/@VERSION@/$version/" "$control" > "$root/DEBIAN/control"
+echo "Installed-Size: $size" >> "$root/DEBIAN/control"
+(cd "$root" && find . -path ./DEBIAN -prune -o -type f -printf '%P\0' \
+  | LC_ALL=C sort -z | xargs -0 md5sum) > "$root/DEBIAN/md5sums"
+chmod 0644 "$root/DEBIAN/control" "$root/DEBIAN/md5sums"
+
+find "$root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+mkdir -p "$(dirname "$out")"
+dpkg-deb --root-owner-group -Zxz --build "$root" "$out" >/dev/null
+echo "$out"

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="dictate">
+  <title>dictate</title>
+  <circle cx="64" cy="64" r="58" fill="none" stroke="#3A3A3A" stroke-width="4"/>
+  <rect x="50" y="26" width="28" height="50" rx="14" fill="none" stroke="#3A3A3A" stroke-width="4"/>
+  <path d="M38 62 a26 26 0 0 0 52 0" fill="none" stroke="#3A3A3A" stroke-width="4" stroke-linecap="round"/>
+  <line x1="64" y1="88" x2="64" y2="102" stroke="#3A3A3A" stroke-width="4" stroke-linecap="round"/>
+  <line x1="50" y1="102" x2="78" y2="102" stroke="#3A3A3A" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="92" cy="30" r="9" fill="#A8432C"/>
+</svg>

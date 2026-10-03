@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# The headless tier: a private GNOME Shell on a private session bus, with its
+# own IBus, settings and runtime directory, so nothing here reaches the
+# desktop this runs on. Everything is set before dbus-run-session starts, so
+# the services the bus activates inherit the private directories too.
+#
+#   tests/integration/run ARTIFACT [TEST...]     default: every test
+set -euo pipefail
+artifact=$(realpath "$1")
+# test_setup last: it changes the layout, in settings every module shares.
+(( $# > 1 )) || set -- "$1" test_headless test_engine_stopped test_setup
+here=$(cd "$(dirname "$0")" && pwd)
+# Short, because a Unix socket path must fit in 108 bytes.
+root=$(mktemp -d /tmp/dictate-it.XXXXXX)
+trap '[ -n "${KEEP:-}" ] || rm -rf "$root"' EXIT
+mkdir -p "$root"/{config,data,cache,state,run,component}
+chmod 700 "$root/run"
+
+# IBus's own components, which it needs to run, but this engine in place of
+# the installed one: two components may not register the same engine name.
+for f in /usr/share/ibus/component/*.xml; do
+  [[ $(basename "$f") == dictate.xml ]] || ln -s "$f" "$root/component/"
+done
+
+export ARTIFACT="$artifact" IT_ROOT="$root" DICTATE_ENGINE_LOG="$root/engine.log"
+export XDG_CONFIG_HOME="$root/config" XDG_DATA_HOME="$root/data"
+export XDG_CACHE_HOME="$root/cache" XDG_STATE_HOME="$root/state" XDG_RUNTIME_DIR="$root/run"
+export GSETTINGS_BACKEND=keyfile IBUS_COMPONENT_PATH="$root/component"
+export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=ubuntu:GNOME
+export WAYLAND_DISPLAY=dictate-it GDK_BACKEND=wayland
+unset DISPLAY DBUS_SESSION_BUS_ADDRESS
+# After the exports, so it reads the private config, which has no file.
+"$artifact" component "$artifact" > "$root/component/dictate.xml"
+cd "$here"
+dbus-run-session -- /usr/bin/python3 -m unittest -v "${@:2}" 2>&1 \
+  | grep -vE '^dbus-daemon\[|^discover_other_daemon|^Gdk-Message'

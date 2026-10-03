@@ -1,0 +1,29 @@
+.TH DICTATE 1 "" "dictate" "User Commands"
+.SH NAME
+dictate \- dictation into the focused input on GNOME on Wayland
+.SH SYNOPSIS
+.B dictate
+.RI [ LANG | status | cancel ]
+.br
+.B dictate setup
+.RI [ options ]
+.SH DESCRIPTION
+The first press records, the second transcribes and inserts the text into the
+input that had focus at the first. Bound to one shortcut per language by
+.BR "dictate setup" ,
+which also sets the input source and writes
+.IR ~/.config/dictate/config .
+Run
+.B dictate setup \-\-help
+for its options.
+.SH FILES
+.TP
+.I ~/.config/dictate/config
+Settings, as KEY="value" lines. A DICTATE_ variable in the environment wins.
+.TP
+.I $XDG_RUNTIME_DIR/dictate/state
+The current phase, read by the tray icon and
+.BR dictate-status (1).
+.SH SEE ALSO
+.BR dictate-status (1),
+.BR dictate-indicator (1)

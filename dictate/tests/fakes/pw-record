@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Fake pw-record: a short silent WAV in place of the microphone, held open
+# until the recorder is stopped, the way the real one is.
+set -u
+out="${!#}"
+{ printf 'RIFF\x24\x19\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80\x3e\x00\x00\x00\x7d\x00\x00\x02\x00\x10\x00data\x00\x19\x00\x00'
+  head -c 6400 /dev/zero; } > "$out"
+trap 'exit 0' INT TERM
+while :; do sleep 0.1; done

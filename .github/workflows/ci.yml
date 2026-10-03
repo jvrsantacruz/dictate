@@ -1,0 +1,39 @@
+---
+name: "CI"
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: "read"
+
+jobs:
+  lint-and-test:
+    runs-on: "ubuntu-24.04"
+    steps:
+      - uses: "actions/checkout@v4"
+        with:
+          fetch-depth: 0
+      - uses: "astral-sh/setup-uv@v6"
+      - name: "Install shellcheck"
+        run: "sudo apt-get update && sudo apt-get install -y shellcheck"
+      - name: "Lint"
+        run: "make lint"
+      - name: "Unit tests"
+        run: "make test"
+
+  packages:
+    runs-on: "ubuntu-24.04"
+    needs: "lint-and-test"
+    steps:
+      - uses: "actions/checkout@v4"
+        with:
+          fetch-depth: 0
+      - name: "Build and check the packages"
+        run: "make deb-check"
+      - uses: "actions/upload-artifact@v4"
+        with:
+          name: "debs"
+          path: "*/dist/*.deb"

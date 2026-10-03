@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Fake notify-send: the message, last argument, appended to FAKE_NOTIFY_LOG.
+printf '%s\n' "${!#}" >> "${FAKE_NOTIFY_LOG:-/dev/null}"

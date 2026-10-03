@@ -1,0 +1,3 @@
+# The rule matches /dev/uinput, a kernel interface with no hardware behind it,
+# so there is no modalias for AppStream to declare.
+dictate-uinput: appstream-metadata-missing-modalias-provide usr/lib/udev/rules.d/72-dictate-uinput.rules

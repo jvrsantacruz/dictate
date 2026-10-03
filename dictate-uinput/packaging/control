@@ -1,0 +1,18 @@
+Package: dictate-uinput
+Version: @VERSION@
+Architecture: all
+Maintainer: Javier Santacruz <javier.santacruz.lc@gmail.com>
+Section: utils
+Priority: optional
+Enhances: dictate
+Homepage: https://github.com/jvrsantacruz/dictate
+Description: let the user at the seat type through /dev/uinput, for dictate
+ A udev rule that tags /dev/uinput for uaccess, so logind gives the user
+ logged in at the seat write access to it. The paste and type methods of
+ dictate press keys through ydotool, which needs that access.
+ .
+ This package is the whole of the grant, so installing it is the choice to
+ make it. The access holds across a user switch: a virtual keyboard opened
+ under it keeps working in the next session. Where uinput is a kernel
+ module rather than built in, the grant takes effect at the next boot; Ubuntu
+ builds it in.

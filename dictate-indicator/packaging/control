@@ -1,0 +1,15 @@
+Package: dictate-indicator
+Version: @VERSION@
+Architecture: all
+Maintainer: Javier Santacruz <javier.santacruz.lc@gmail.com>
+Section: utils
+Priority: optional
+Depends: python3 (>= 3.12), python3-gi, gir1.2-ayatanaappindicator3-0.1, gir1.2-gtk-3.0
+Recommends: gnome-shell-extension-appindicator | gnome-shell-ubuntu-extensions
+Enhances: dictate
+Homepage: https://github.com/jvrsantacruz/dictate
+Description: tray icon showing whether dictation is recording
+ Shows the state of dictate in the top bar: a red circle that blinks while
+ recording, an amber one while transcribing, with the language and a timer.
+ It reads the state file dictate writes, and runs as a user unit that
+ `dictate setup` enables.

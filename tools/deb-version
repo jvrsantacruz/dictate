@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# deb-version PREFIX DIR - the Debian version of the application in DIR.
+#
+# PREFIX is what the release tags start with, `v` for vX.Y.Z. The three
+# packages of a release share its tag; each counts its own commits after it.
+#
+#   PREFIXX.Y.Z tag at or before the last commit to DIR, clean  X.Y.Z
+#   commits to DIR since that tag                             X.Y.Z+gitN.gSHA
+#   uncommitted changes in DIR                                ... .dirtyHASH
+#
+# No tag yet counts from 0.0.0, so the first tag sorts above every build
+# before it. A dirty tree always carries +gitN, N 0 on the tag itself, so
+# committing the changes sorts above the dirty build. Two dirty builds of one
+# commit do not sort: the dirty part is a hash of the files, so the same tree
+# gives the same version and any change a new one; an installer that tracks
+# a working tree has to allow a lower version.
+set -euo pipefail
+prefix=$1 dir=$2
+cd "$dir"
+tag=$(git describe --tags --abbrev=0 --match "${prefix}[0-9]*" 2>/dev/null || true)
+if [[ -n $tag ]]; then
+  base=${tag#"$prefix"}
+  count=$(git rev-list --count "$tag..HEAD" -- .)
+else
+  base=0.0.0
+  count=$(git rev-list --count HEAD -- .)
+fi
+dirty=$(git status --porcelain --untracked-files=all -- .)
+version=$base
+if [[ -z $tag || $count != 0 || -n $dirty ]]; then
+  # The last commit to DIR, not HEAD: a commit elsewhere in the repository
+  # changes nothing here, so it must not change the version either.
+  sha=$(git rev-list -1 --abbrev-commit --abbrev=8 HEAD -- .)
+  version+="+git$count.g${sha:-$(git rev-parse --short=8 HEAD)}"
+fi
+if [[ -n $dirty ]]; then
+  # The files as they are, each by its git blob hash, in a fixed order. A
+  # deleted file is left out rather than failing the hash, and the order does
+  # not depend on the locale, so every shell gets the same version.
+  # NUL separated, so a name with spaces or non-ASCII bytes is hashed too.
+  hash=$(git ls-files -z --cached --others --exclude-standard -- . \
+    | LC_ALL=C sort -zu \
+    | while IFS= read -r -d '' f; do
+        if [[ -f $f ]]; then printf '%s %s\n' "$f" "$(git hash-object -- "$f")"; fi
+      done \
+    | sha256sum | cut -c1-8)
+  version+=".dirty$hash"
+fi
+echo "$version"

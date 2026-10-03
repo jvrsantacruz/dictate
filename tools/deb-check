@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# deb-check DEB... - check packages in a clean container of each supported Ubuntu.
+#
+# lintian on the newest release; then, on every release, install an older
+# copy of each package and upgrade it to this one with apt, as a person would,
+# run what needs no desktop, reinstall, purge, and check nothing is
+# left behind. The older copy is this package repacked at version 0~old, so
+# the upgrade exercises file replacement without a second build. A container has no desktop, so the session
+# side is the integration tier's.
+set -euo pipefail
+releases=${RELEASES:-24.04 26.04}
+debs=()
+for deb in "$@"; do debs+=("$(realpath "$deb")"); done
+old=$(mktemp -d)
+trap 'rm -rf "$old"' EXIT
+for deb in "${debs[@]}"; do
+  tree="$old/tree"
+  dpkg-deb -R "$deb" "$tree"
+  sed -i 's/^Version: .*/Version: 0~old/' "$tree/DEBIAN/control"
+  dpkg-deb --root-owner-group -Zxz --build "$tree" "$old/$(basename "$deb" .deb)-old.deb" >/dev/null
+  rm -rf "$tree"
+done
+mounts=(-v "$old:/old:ro")
+for deb in "${debs[@]}"; do mounts+=(-v "$deb:/debs/$(basename "$deb"):ro"); done
+names=$(for deb in "${debs[@]}"; do dpkg-deb -f "$deb" Package; done | tr '\n' ' ')
+
+# Containers have no udev, so install scripts that reload it never run their
+# udev branch there: at least they must parse.
+for deb in "${debs[@]}"; do
+  scripts=$(mktemp -d)
+  dpkg-deb -e "$deb" "$scripts"
+  for script in "$scripts"/postinst "$scripts"/postrm "$scripts"/prerm "$scripts"/preinst; do
+    [[ -f $script ]] || continue
+    sh -n "$script"
+    echo "parses: $(basename "$deb") $(basename "$script")"
+  done
+  rm -rf "$scripts"
+done
+
+newest=${releases##* }
+echo "== lintian, ubuntu:$newest"
+docker run --rm "${mounts[@]}" "ubuntu:$newest" bash -c '
+  set -e
+  apt-get update -qq >/dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -qq -y lintian >/dev/null
+  lintian --fail-on warning --display-info /debs/*.deb'
+
+for release in $releases; do
+  echo "== install, reinstall, remove, ubuntu:$release"
+  docker run --rm "${mounts[@]}" -e NAMES="$names" "ubuntu:$release" bash -c '
+    set -e
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq >/dev/null
+    apt-get install -qq -y /old/*.deb >/dev/null
+    apt-get install -qq -y /debs/*.deb >/dev/null
+    echo "upgraded from 0~old"
+    for name in $NAMES; do dpkg -s "$name" | grep -E "^(Package|Version|Status):"; done
+    if command -v dictate >/dev/null; then
+      dictate engines | grep -q "<layout>"
+      dictate status
+      dictate setup --help >/dev/null
+      # Every module imports on this release, gi bindings included.
+      python3 -c "import sys; sys.path.insert(0, \"/usr/bin/dictate\")
+import dictate.gnome.engine, dictate.gnome.adapter, dictate.gnome.setup"
+      echo "dictate runs on $(python3 --version)"
+    fi
+    if command -v dictate-indicator >/dev/null; then
+      dictate-indicator --help >/dev/null
+      echo "dictate-indicator runs"
+    fi
+    apt-get install -qq -y --reinstall /debs/*.deb >/dev/null
+    files=$(for name in $NAMES; do dpkg -L "$name"; done | sort -u)
+    # Purge, which removes too: these packages keep no config to purge later.
+    apt-get purge -qq -y $NAMES >/dev/null
+    for name in $NAMES; do
+      if dpkg -s "$name" >/dev/null 2>&1; then echo "still known to dpkg: $name"; exit 1; fi
+    done
+    left=0
+    for f in $files; do
+      [ -d "$f" ] && continue
+      if [ -e "$f" ]; then echo "left behind: $f"; left=1; fi
+    done
+    [ "$left" = 0 ] || exit 1
+    echo "removed cleanly, every packaged file gone"'
+done

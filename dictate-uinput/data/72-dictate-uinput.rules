@@ -1,0 +1,28 @@
+# Installed by the dictate-uinput package, which exists for this one rule:
+# installing it is the admin's choice to let the user at the seat write to
+# /dev/uinput. Only the paste and type methods of dictate need it. The grant
+# is the seat's: a virtual keyboard opened under it keeps working after a
+# user switch. Ubuntu's steam-devices makes the same grant, the same way.
+#
+# ydotool synthesises keystrokes by writing to /dev/uinput, for the paste and type
+# methods of dictate. The ydotool package
+# ships 80-uinput.rules, which makes that node root:input 0660, so reaching it
+# means being in the `input` group -- and supplementary groups are only read at
+# login, so the run that grants the group cannot make it effective.
+#
+# uaccess instead has logind put an ACL on the node for whoever is logged in at
+# the seat. It applies immediately and again on every login, so dictation works
+# on the run that installs it and after a reboot, with no logout in between.
+#
+# The number is the whole point. /usr/lib/udev/rules.d/73-seat-late.rules is
+# what runs the uaccess builtin, on `TAG=="uaccess"`, so the tag has to be set
+# before 73 is reached. A tag first set after it is invisible to that match in
+# the same event and only shows up in a later one, which reads as working for
+# as long as a previous event left the tag in the database.
+#
+# It is not about 80-uinput.rules, which only sets MODE and GROUP and does not
+# interact with the tag at all.
+# static_node: where uinput is a module, /dev/uinput exists before it is
+# loaded, and logind gives that node the ACL at login too. Built in, as on
+# Ubuntu's kernels, the option is a no-op.
+ACTION!="remove", KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

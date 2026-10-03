@@ -1,0 +1,11 @@
+#!/bin/sh
+# Apply the rule now, so the user at the seat can write to /dev/uinput
+# without a reboot. Nothing else.
+set -e
+if [ "$1" = configure ] && command -v udevadm >/dev/null 2>&1; then
+    udevadm control --reload-rules || true
+    if [ -e /dev/uinput ]; then
+        udevadm trigger --settle --name-match=uinput || true
+    fi
+fi
+exit 0

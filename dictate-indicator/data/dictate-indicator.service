@@ -1,0 +1,17 @@
+# Installed by the dictate-indicator package. `dictate setup` enables it.
+[Unit]
+Description=Tray icon for the dictation state
+Documentation=man:dictate-indicator(1)
+# Bound to the desktop session: it draws in the top bar, so it has nothing to
+# do before the session starts and must stop when it ends.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/dictate-indicator
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

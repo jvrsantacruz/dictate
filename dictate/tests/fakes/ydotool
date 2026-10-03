@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Fake ydotool for the headless tier, where the real one would type on the
+# desktop the tests are not running on. Any call is a test bug.
+printf '%s\n' "$*" >> "${FAKE_YDOTOOL_LOG:-/dev/null}"
+exit 1

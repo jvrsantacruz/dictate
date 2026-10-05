@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# apt-sources URI KEY - a deb822 sources file for the repository at URI, with
+# KEY, an armored public key, inside it.
+#
+# One file to download is the whole install: apt (2.4 and later) reads a key
+# written in Signed-By, so there is no keyring to fetch, dearmor and place.
+# Inside the field each line is indented one space and an empty line is " .".
+set -euo pipefail
+uri=$1
+key=$2
+grep -q 'BEGIN PGP PUBLIC KEY BLOCK' "$key" || { echo "apt-sources: $key is no public key" >&2; exit 1; }
+grep -q 'PRIVATE' "$key" && { echo "apt-sources: $key holds a private key" >&2; exit 1; }
+cat <<SOURCES
+Types: deb
+URIs: $uri
+Suites: stable
+Components: main
+Signed-By:
+SOURCES
+sed 's/^$/./; s/^/ /' "$key"

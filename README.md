@@ -25,21 +25,17 @@ From the apt repository, which keeps it up to date with the rest of the system, 
 unattended-upgrades included:
 
 ```sh
-sudo install -d -m 0755 /etc/apt/keyrings
-curl -fsSL https://jvrsantacruz.github.io/dictate/dictate-archive-keyring.asc \
-  | sudo gpg --dearmor -o /etc/apt/keyrings/dictate.gpg
-sudo tee /etc/apt/sources.list.d/dictate.sources >/dev/null <<'SOURCES'
-Types: deb
-URIs: https://jvrsantacruz.github.io/dictate/apt
-Suites: stable
-Components: main
-Signed-By: /etc/apt/keyrings/dictate.gpg
-SOURCES
+sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources \
+  https://jvrsantacruz.github.io/dictate/dictate.sources
 sudo apt update && sudo apt install dictate dictate-indicator
 ```
 
-The key's fingerprint is `0236 18A8 42F3 2549 E1A7  A820 2AB0 8318 A522 3B11`; check it with
-`gpg --show-keys /etc/apt/keyrings/dictate.gpg`.
+The file names the repository and holds its signing key, fingerprint
+`0236 18A8 42F3 2549 E1A7  A820 2AB0 8318 A522 3B11`. Check it with:
+
+```sh
+sed -n '/BEGIN PGP/,/END PGP/s/^ \.\{0,1\}//p' /etc/apt/sources.list.d/dictate.sources | gpg --show-keys
+```
 
 Or download the `.deb` files from the
 [latest release](https://github.com/jvrsantacruz/dictate/releases/latest) and

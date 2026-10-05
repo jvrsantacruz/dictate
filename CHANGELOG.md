@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.3
 
 - A tmux plugin: `set -g @plugin 'jvrsantacruz/dictate'` with TPM, or
   `run-shell /usr/share/dictate/dictate.tmux`, turns `#{dictate_status}` into the segment.

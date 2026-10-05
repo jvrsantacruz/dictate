@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.4
 
 - The install is one line, with a copy button on the site.
 - A screenshot of the tray icon while recording, in the README and on the site.

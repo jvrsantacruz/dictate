@@ -71,7 +71,7 @@ jobs:
         run: |-
           mkdir -p _site
           cp -r site/. _site/
-          cp docs/logo.svg docs/dictate-archive-keyring.asc _site/
+          cp docs/logo.svg docs/dictate-archive-keyring.asc docs/tray.png _site/
           tools/apt-repo _site/apt debs/*/dist/*.deb
           tools/apt-sources https://jvrsantacruz.github.io/dictate/apt docs/dictate-archive-keyring.asc > _site/dictate.sources
       - uses: "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d"  # v6.0.0

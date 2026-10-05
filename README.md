@@ -16,6 +16,8 @@ Speak into any text field on GNOME.
 - **Into the right field.** An IBus input method inserts the text into the input that had focus when you started. When nothing is in focus the text is saved in the clipboard.
 - GNOME tray icon and status.
 
+<p align="center"><img src="docs/tray.png" width="330" alt="The GNOME top bar while recording: a red dot, EN and 0:12"></p>
+
 Runs on Ubuntu 24.04 or later, GNOME on Wayland.
 
 ## Install
@@ -24,16 +26,7 @@ From the apt repository, which keeps it up to date with the rest of the system, 
 unattended-upgrades included:
 
 ```sh
-sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources \
-  https://jvrsantacruz.github.io/dictate/dictate.sources
-sudo apt update && sudo apt install dictate dictate-indicator
-```
-
-The file names the repository and holds its signing key, fingerprint
-`0236 18A8 42F3 2549 E1A7  A820 2AB0 8318 A522 3B11`. Check it with:
-
-```sh
-sed -n '/BEGIN PGP/,/END PGP/s/^ \.\{0,1\}//p' /etc/apt/sources.list.d/dictate.sources | gpg --show-keys
+sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources https://jvrsantacruz.github.io/dictate/dictate.sources && sudo apt update && sudo apt install dictate dictate-indicator
 ```
 
 Or download the `.deb` files from the

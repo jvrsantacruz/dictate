@@ -36,6 +36,15 @@ pre {
   background: var(--surface); border: 1px solid var(--line); border-radius: .6rem;
   padding: 1rem; overflow-x: auto; font-size: .88rem; line-height: 1.45;
 }
+.install { position: relative; }
+.install pre { padding-right: 5.5rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.install button {
+  position: absolute; top: .6rem; right: .6rem; cursor: pointer;
+  padding: .3rem .8rem; border-radius: 999px; border: 1px solid var(--accent);
+  background: var(--accent); color: var(--on-accent); font: 600 .78rem/1.4 "Hanken Grotesk", system-ui, sans-serif;
+}
+.shot { text-align: center; }
+.shot img { max-width: 100%; height: auto; border-radius: .4rem; }
 code { font-family: ui-monospace, "DejaVu Sans Mono", monospace; }
 a { color: var(--accent); }
 .links { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; }
@@ -68,16 +77,23 @@ footer { margin-top: 3rem; color: var(--muted); font-size: .82rem; text-align: c
   <li><strong>Into the right field.</strong> An IBus input method inserts the text into the input that had focus when you started. When nothing is in focus the text is saved in the clipboard.</li>
   <li>GNOME tray icon and status.</li>
 </ul>
+<p class="shot"><img src="tray.png" width="330" height="32" alt="The GNOME top bar while recording: a red dot, EN and 0:12"></p>
 <p>Ubuntu 24.04 or later, GNOME on Wayland.</p>
 
 <h2 id="install">Install</h2>
-<pre><code>sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources \
-  https://jvrsantacruz.github.io/dictate/dictate.sources
-sudo apt update &amp;&amp; sudo apt install dictate dictate-indicator
-dictate setup</code></pre>
-<p>The file names the repository and holds its signing key, fingerprint <code>0236 18A8 42F3 2549 E1A7 A820 2AB0 8318 A522 3B11</code>. You also need a transcriber: see the <a href="https://github.com/jvrsantacruz/dictate#a-transcriber">README</a>.</p>
+<div class="install"><pre><code id="install-line">sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources https://jvrsantacruz.github.io/dictate/dictate.sources &amp;&amp; sudo apt update &amp;&amp; sudo apt install dictate dictate-indicator &amp;&amp; dictate setup</code></pre>
+  <button type="button" id="copy" aria-label="Copy the install command">Copy</button></div>
+<p>You also need a transcriber: see the <a href="https://github.com/jvrsantacruz/dictate#a-transcriber">README</a>.</p>
 
 <footer>dictate is free software under the <a href="https://github.com/jvrsantacruz/dictate/blob/main/LICENSE">GPL-3.0-or-later</a>.</footer>
 </main>
+<script>
+document.getElementById("copy").addEventListener("click", (e) => {
+  navigator.clipboard.writeText(document.getElementById("install-line").textContent).then(() => {
+    e.target.textContent = "Copied";
+    setTimeout(() => { e.target.textContent = "Copy"; }, 1500);
+  });
+});
+</script>
 </body>
 </html>

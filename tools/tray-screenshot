@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# tray-screenshot INDICATOR OUT.png - the top bar while dictate records, for
+# the README and the site.
+#
+# A private headless GNOME Shell on a private session bus, the AppIndicator
+# extension, the tray app INDICATOR and a fake recording seven seconds old:
+# nothing of the desktop this runs on is in the picture. Crops the clock and
+# the indicator, at twice the scale: the area is in logical pixels, half the
+# monitor's.
+set -euo pipefail
+
+if [[ ${1:-} != --inside ]]; then
+  indicator=$(realpath "$1")
+  out=$(realpath -m "$2")
+  root=$(mktemp -d /tmp/dictate-shot.XXXXXX)
+  # The session's portal and gvfs mount FUSE folders in run/; they go with it.
+  trap 'sleep 1; rm -rf "$root" 2>/dev/null || true' EXIT
+  mkdir -p "$root"/{config,data,cache,state,run}
+  chmod 700 "$root/run"
+  env -u DISPLAY -u DBUS_SESSION_BUS_ADDRESS -u WAYLAND_DISPLAY \
+    ROOT="$root" XDG_CONFIG_HOME="$root/config" XDG_DATA_HOME="$root/data" \
+    XDG_CACHE_HOME="$root/cache" XDG_STATE_HOME="$root/state" XDG_RUNTIME_DIR="$root/run" \
+    GSETTINGS_BACKEND=keyfile XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=ubuntu:GNOME \
+    GDK_BACKEND=wayland \
+    dbus-run-session -- "$0" --inside "$indicator" "$out" >"$root.log" 2>&1 \
+    || { cat "$root.log" >&2; exit 1; }
+  rm -f "$root.log"
+  [[ -s $out ]] || { echo "tray-screenshot: no capture" >&2; exit 1; }
+  echo "$out"
+  exit 0
+fi
+
+indicator=$2 out=$3
+gsettings set org.gnome.shell disable-user-extensions false
+gsettings set org.gnome.shell enabled-extensions "['ubuntu-appindicators@ubuntu.com']"
+gsettings set org.gnome.desktop.interface scaling-factor 2
+WAYLAND_DISPLAY="" gnome-shell --headless --unsafe-mode --virtual-monitor 1600x900 \
+  --wayland-display dictate-shot --no-x11 &
+shell=$!
+for _ in $(seq 100); do [[ -S $XDG_RUNTIME_DIR/dictate-shot ]] && break; sleep 0.1; done
+export WAYLAND_DISPLAY=dictate-shot
+sleep 3
+mkdir -p "$XDG_RUNTIME_DIR/dictate"
+echo "capturing $(( $(date +%s) - 7 )) en" > "$XDG_RUNTIME_DIR/dictate/state"
+"$indicator" &
+indicator_pid=$!
+sleep 4
+# Unsafe mode is what lets Eval and Screenshot answer a caller that is not the shell.
+gdbus call --session -d org.gnome.Shell -o /org/gnome/Shell \
+  -m org.gnome.Shell.Eval 'Main.overview.hide(); true' >/dev/null
+sleep 2
+# The clock and the indicator, not the system icons beyond them.
+shoot() {
+  gdbus call --session -d org.gnome.Shell.Screenshot -o /org/gnome/Shell/Screenshot \
+    -m org.gnome.Shell.Screenshot.ScreenshotArea 345 0 330 32 false "$1" >/dev/null
+}
+# The icon blinks between a red circle and a red ring on the tray's own
+# one-second timer. Two captures a second apart hold one of each; the circle
+# is the one with more red.
+shoot "$out.a"
+sleep 1
+shoot "$out.b"
+/usr/bin/python3 - "$out" <<'PY'
+import os, sys
+import gi
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import GdkPixbuf
+def red(path):
+    p = GdkPixbuf.Pixbuf.new_from_file(path)
+    data, n, stride = p.get_pixels(), p.get_n_channels(), p.get_rowstride()
+    return sum(
+        1
+        for y in range(p.get_height())
+        for x in range(p.get_width())
+        if data[y * stride + x * n] > 200 and data[y * stride + x * n + 1] < 100
+    )
+out = sys.argv[1]
+best = max((out + ".a", out + ".b"), key=red)
+os.replace(best, out)
+for f in (out + ".a", out + ".b"):
+    if os.path.exists(f):
+        os.remove(f)
+PY
+kill "$indicator_pid" "$shell"
+wait 2>/dev/null || true

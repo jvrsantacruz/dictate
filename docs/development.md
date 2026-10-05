@@ -6,8 +6,13 @@ Three applications and their build scripts:
 dictate/            the program, its IBus engine and `dictate setup`
 dictate-indicator/  the tray icon
 dictate-uinput/     the udev rule that grants /dev/uinput, alone
-tools/              deb-version, deb-build, deb-check
+tools/              deb-version, deb-build, deb-check, apt-repo, apt-sources,
+                    tray-screenshot
 ```
+
+`docs/tray.png` is made in a private headless GNOME Shell, never this desktop:
+`tools/tray-screenshot dictate-indicator/dist/dictate-indicator docs/tray.png`, after
+`make -C dictate-indicator build`.
 
 Each application is a zipapp on the system interpreter, packaged with `dpkg-deb`. `gi` comes
 from apt, so nothing else is needed at run time.

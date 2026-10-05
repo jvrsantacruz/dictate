@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The install is one line, with a copy button on the site.
+- A screenshot of the tray icon while recording, in the README and on the site.
+
 ## 0.1.3
 
 - A tmux plugin: `set -g @plugin 'jvrsantacruz/dictate'` with TPM, or

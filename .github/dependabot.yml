@@ -5,3 +5,6 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    # A release a week old has had time to be found bad and pulled.
+    cooldown:
+      default-days: 7

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# pre-push-tags - each version tag on the commit being pushed matches the top
+# of CHANGELOG.md. pre-commit names that commit in PRE_COMMIT_TO_REF.
+#
+# A push of a tag alone, on commits the remote already has, gives pre-commit
+# nothing to check; the release workflow runs the same check for that case.
+set -euo pipefail
+here=$(dirname "$0")
+for tag in $(git tag --points-at "${PRE_COMMIT_TO_REF:-HEAD}" 'v[0-9]*'); do
+  "$here/../check-changelog" "$tag"
+done

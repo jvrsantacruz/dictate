@@ -27,6 +27,8 @@ jobs:
         run: "sudo apt-get update && sudo apt-get install -y tmux"
       - name: "Unit tests"
         run: "make test"
+      - name: "Every pre-commit check, on every file"
+        run: "uvx --from pre-commit==4.6.2 pre-commit run --all-files --show-diff-on-failure"
 
   packages:
     runs-on: "ubuntu-24.04"

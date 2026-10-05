@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# private-words FILE... - refuse text that matches the owner's private words:
+# the names of their machines, network and paths, never published here.
+#
+# The list is not in this repository, because listing them would publish them.
+# It is read from $PRIVATE_WORDS, by default ~/.config/git/private-words: one
+# extended regular expression per line, case ignored, # for a comment. Without
+# the list, as for a contributor or in CI, there is nothing to check.
+set -euo pipefail
+list=${PRIVATE_WORDS:-$HOME/.config/git/private-words}
+[[ -r $list ]] || exit 0
+patterns=$(grep -vE '^[[:space:]]*(#|$)' "$list" || true)
+[[ -n $patterns ]] || exit 0
+if grep -nHIiE -f <(printf '%s\n' "$patterns") -- "$@"; then
+  echo "private-words: the lines above hold a word from $list" >&2
+  exit 1
+fi

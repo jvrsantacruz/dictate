@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# check-changelog TAG - CHANGELOG.md at TAG opens with that version, and holds
+# no "Unreleased" section: a release without its notes stops here.
+set -euo pipefail
+tag=$1
+version=${tag#v}
+log=$(git show "refs/tags/$tag:CHANGELOG.md")
+top=$(grep -m1 '^## ' <<<"$log" || true)
+if [[ $top != "## $version" ]]; then
+  echo "check-changelog: $tag, but CHANGELOG.md opens with '${top:-no section}'" >&2
+  exit 1
+fi
+if grep -q '^## Unreleased' <<<"$log"; then
+  echo "check-changelog: $tag still has an Unreleased section" >&2
+  exit 1
+fi

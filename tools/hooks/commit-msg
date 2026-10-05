@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# commit-msg MESSAGE-FILE - a commit message names no AI tool as an author and
+# carries none of the private words.
+set -euo pipefail
+msg=$1
+# Comment lines are dropped by git before the commit is written.
+if grep -v '^#' "$msg" | grep -qiE '^co-authored-by:.*(claude|anthropic|copilot|openai|gemini|cursor)|generated (with|by) .*(claude|copilot|chatgpt|gemini|cursor|ai\b)'; then
+  echo "commit-msg: no AI attribution in a commit message" >&2
+  exit 1
+fi
+exec "$(dirname "$0")/private-words" "$msg"

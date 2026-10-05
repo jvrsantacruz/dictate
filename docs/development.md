@@ -51,6 +51,20 @@ cli.py          argparse, wiring only
 
 The headless tier never touches your session: it runs its own shell, bus, settings and IBus.
 
+## Hooks
+
+```sh
+pre-commit install
+```
+
+Installs the checks in `.pre-commit-config.yaml` for commits, commit messages and pushes. Each
+runs only when the commit touches what it reads: ruff on Python, shellcheck on shell, actionlint
+and zizmor on workflows. A push runs the unit tests and refuses a version tag that
+`CHANGELOG.md` does not open with. CI runs every check on every file.
+
+`tools/hooks/private-words` refuses words listed in `~/.config/git/private-words`, a file kept
+outside the repository; without it, nothing is checked.
+
 ## Versions
 
 A release is a tag `vX.Y.Z`. Builds after it carry `+gitN.gSHA`, and uncommitted ones

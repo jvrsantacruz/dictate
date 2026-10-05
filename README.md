@@ -100,6 +100,28 @@ user at the seat. It is a package of its own because that access is a choice: it
 keyboard for every program that user runs, and it outlasts a switch to another user, so it is not
 for a machine people share. `ime`, the default, needs none of it.
 
+### tmux
+
+A notification does not draw over a fullscreen terminal; a tmux segment does. With
+[TPM](https://github.com/tmux-plugins/tpm), in `~/.tmux.conf`:
+
+```tmux
+set -g @plugin 'jvrsantacruz/dictate'
+set -g status-left '#{dictate_status}[#S] '
+```
+
+Without TPM, the package ships the same plugin:
+
+```tmux
+set -g status-left '#{dictate_status}[#S] '
+run-shell /usr/share/dictate/dictate.tmux
+```
+
+`#{dictate_status}` works in `status-left` or `status-right`. It is empty when idle, a red
+`REC EN 0:07` while recording and an amber spinner while transcribing. Change the colours with
+`set -g @dictate-rec-style 'fg=white,bg=red'` and `@dictate-busy-style`. The counter ticks at
+your `status-interval`.
+
 ## Use
 
 Press your language's shortcut, speak, press it again. The tray icon is red while recording and amber while transcribing. `dictate cancel` stops without transcribing.

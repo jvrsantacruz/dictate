@@ -4,7 +4,9 @@
 # Prints nothing when idle, so the segment costs no width until it is needed.
 # Meant for `status-left` with `status-interval 1`; dictate also calls
 # `tmux refresh-client -S` on every transition, so the marker tracks the
-# keypress rather than the next tick.
+# keypress rather than the next tick. The tmux options @dictate-rec-style and
+# @dictate-busy-style replace the colours; dictate.tmux puts this script where
+# the user wrote #{dictate_status}.
 #
 # This exists because a desktop notification does not draw over a fullscreen
 # terminal.
@@ -17,6 +19,14 @@ STATEFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dictate/state"
 read -r phase started lang < "$STATEFILE" 2>/dev/null || exit 0
 [[ -n ${phase:-} ]] || exit 0
 
+# A tmux style the user set, or DEFAULT. Read only when there is something to
+# draw, so the idle segment costs no call to tmux.
+style() {  # style OPTION DEFAULT
+  local value=""
+  [[ -n ${TMUX:-} ]] && value=$(tmux show-option -gqv "$1" 2>/dev/null)
+  printf '%s' "${value:-$2}"
+}
+
 now=$(date +%s)
 elapsed=$(( now - ${started:-now} ))
 (( elapsed < 0 )) && elapsed=0
@@ -25,7 +35,8 @@ case "$phase" in
   capturing)
     # Red, and counting up, so a recording left running is obvious rather than
     # merely indicated.
-    printf '#[fg=#ffffff,bg=#ff3b30,bold] REC %s %d:%02d #[default] ' \
+    printf '#[%s] REC %s %d:%02d #[default] ' \
+      "$(style @dictate-rec-style 'fg=#ffffff,bg=#ff3b30,bold')" \
       "${lang^^}" "$(( elapsed / 60 ))" "$(( elapsed % 60 ))"
     ;;
   transcribing)
@@ -34,7 +45,8 @@ case "$phase" in
     # An array, and the backslash double quoted: in single quotes shellcheck
     # reads it as a failed attempt to escape the quote.
     frames=('|' '/' '-' "\\")
-    printf '#[fg=#1c1c1e,bg=#ff9500,bold] %s %s #[default] ' \
+    printf '#[%s] %s %s #[default] ' \
+      "$(style @dictate-busy-style 'fg=#1c1c1e,bg=#ff9500,bold')" \
       "${frames[now % 4]}" "${lang^^}"
     ;;
 esac

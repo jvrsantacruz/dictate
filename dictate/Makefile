@@ -49,6 +49,7 @@ deb: build
 	@rm -rf $(ROOT) dist/dictate_*.deb
 	install -Dm755 $(ARTIFACT) $(ROOT)/usr/bin/dictate
 	install -Dm755 data/dictate-status $(ROOT)/usr/bin/dictate-status
+	install -Dm755 data/dictate.tmux $(ROOT)/usr/share/dictate/dictate.tmux
 	install -d $(ROOT)/usr/share/ibus/component
 	$(ARTIFACT) component /usr/bin/dictate $(VERSION) > $(ROOT)/usr/share/ibus/component/dictate.xml
 	install -Dm644 packaging/dictate.1 $(ROOT)/usr/share/man/man1/dictate.1

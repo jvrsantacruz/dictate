@@ -23,6 +23,8 @@ jobs:
       - uses: "astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7"  # v10.2.0
       - name: "Lint"
         run: "make lint"
+      - name: "Install tmux, for the plugin tests"
+        run: "sudo apt-get update && sudo apt-get install -y tmux"
       - name: "Unit tests"
         run: "make test"
 

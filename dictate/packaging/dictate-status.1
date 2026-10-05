@@ -6,9 +6,26 @@ dictate-status \- the dictation state as a tmux status segment
 .SH DESCRIPTION
 Prints the phase of
 .BR dictate (1)
-in tmux colours, or nothing when idle. Meant for
+in tmux colours, or nothing when idle.
+.PP
+.I /usr/share/dictate/dictate.tmux
+puts it where
+.B #{dictate_status}
+is written in
 .B status-left
-with
-.BR "status-interval 1" .
+or
+.BR status-right ;
+TPM runs the same file from the repository. The counter ticks at
+.BR status-interval .
+.SH OPTIONS
+tmux options, read only while there is something to draw:
+.TP
+.B @dictate-rec-style
+style while recording; default
+.BR fg=#ffffff,bg=#ff3b30,bold .
+.TP
+.B @dictate-busy-style
+style while transcribing; default
+.BR fg=#1c1c1e,bg=#ff9500,bold .
 .SH SEE ALSO
 .BR dictate (1)

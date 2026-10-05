@@ -13,7 +13,7 @@ help:
 lint:
 	$(MAKE) -C dictate lint
 	$(MAKE) -C dictate-indicator lint
-	shellcheck tools/* dictate/data/dictate-status dictate/tests/integration/run dictate/tests/fakes/*
+	shellcheck tools/* dictate/data/dictate-status dictate/data/dictate.tmux dictate/tests/integration/run dictate/tests/fakes/*
 	shellcheck -s sh dictate-uinput/packaging/postinst dictate-uinput/packaging/postrm
 
 ## test       the unit tests of both Python apps

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- A tmux plugin: `set -g @plugin 'jvrsantacruz/dictate'` with TPM, or
+  `run-shell /usr/share/dictate/dictate.tmux`, turns `#{dictate_status}` into the segment.
+  `@dictate-rec-style` and `@dictate-busy-style` set its colours.
+
 ## 0.1.2
 
 - Install with one file: `dictate.sources` on the site names the apt repository and holds its

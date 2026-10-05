@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `dictate-whisper`, a local transcriber for Ubuntu 26.04 and later: whisper.cpp's server with
+  the multilingual base model, as a user service `dictate setup` enables. dictate suggests it, so
+  apt installs it only when named.
+- The install is one line with the transcriber, or one without it for Ubuntu 24.04.
+
 ## 0.1.4
 
 - The install is one line, with a copy button on the site.

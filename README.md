@@ -23,41 +23,25 @@ Runs on Ubuntu 24.04 or later, GNOME on Wayland.
 ## Install
 
 From the apt repository, which keeps it up to date with the rest of the system, upgrades by
-unattended-upgrades included:
+unattended-upgrades included. On Ubuntu 26.04 or later, with a local transcriber:
 
 ```sh
-sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources https://jvrsantacruz.github.io/dictate/dictate.sources && sudo apt update && sudo apt install dictate dictate-indicator
+sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources https://jvrsantacruz.github.io/dictate/dictate.sources && sudo apt update && sudo apt install dictate dictate-indicator dictate-whisper && dictate setup
+```
+
+`dictate-whisper` runs [whisper.cpp](https://github.com/ggml-org/whisper.cpp)'s server on
+`127.0.0.1:8081` with the multilingual base model, as a user service that `dictate setup`
+enables. It is optional: leave it out on Ubuntu 24.04, which has no whisper.cpp package, or to
+use a transcriber of your own, any whisper server or OpenAI-compatible endpoint, see
+[Configure](#configure):
+
+```sh
+sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources https://jvrsantacruz.github.io/dictate/dictate.sources && sudo apt update && sudo apt install dictate dictate-indicator && dictate setup
 ```
 
 Or download the `.deb` files from the
 [latest release](https://github.com/jvrsantacruz/dictate/releases/latest) and
 `sudo apt install ./dictate_*.deb ./dictate-indicator_*.deb`.
-
-### A transcriber
-
-dictate sends audio to a whisper server on `http://127.0.0.1:8081`. Ubuntu 26.04 packages one:
-
-```sh
-sudo apt install whisper.cpp
-mkdir -p ~/.local/share/whisper ~/.config/systemd/user
-curl -fsSLo ~/.local/share/whisper/ggml-base-q5_1.bin \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin
-tee ~/.config/systemd/user/whisper-server.service >/dev/null <<'UNIT'
-[Unit]
-Description=whisper.cpp transcription server for dictate
-
-[Service]
-ExecStart=/usr/bin/whisper-server -m %h/.local/share/whisper/ggml-base-q5_1.bin --host 127.0.0.1 --port 8081
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-UNIT
-systemctl --user enable --now whisper-server
-```
-
-Ubuntu 24.04 has no whisper.cpp package: [build it](https://github.com/ggml-org/whisper.cpp#quick-start),
-or use any OpenAI-compatible transcription endpoint, see [Configure](#configure).
 
 ## Configure
 

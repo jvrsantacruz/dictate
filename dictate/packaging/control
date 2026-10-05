@@ -6,7 +6,7 @@ Section: utils
 Priority: optional
 Depends: python3 (>= 3.12), python3-gi, gir1.2-ibus-1.0, ibus, wl-clipboard, pipewire-bin, libnotify-bin, libglib2.0-bin, gsettings-desktop-schemas, gnome-settings-daemon-common
 Recommends: dictate-indicator, ydotool (>= 1.0), sound-theme-freedesktop
-Suggests: whisper.cpp, tmux, dictate-uinput
+Suggests: dictate-whisper, tmux, dictate-uinput
 Homepage: https://github.com/jvrsantacruz/dictate
 Description: dictation into the focused input on GNOME on Wayland
  Press a shortcut, speak, press it again: the speech is transcribed by a
@@ -16,7 +16,8 @@ Description: dictation into the focused input on GNOME on Wayland
  .
  Run `dictate setup` once per user to set the shortcuts, the input source
  and the config, and again after an upgrade, so IBus runs the new engine.
- The transcriber is not part of this package.
+ The transcriber is not part of this package: dictate-whisper is a local one,
+ or point dictate at any whisper server.
  .
  The paste and type methods need write access to /dev/uinput, which the
  dictate-uinput package grants to the user at the seat. It is only suggested:

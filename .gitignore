@@ -4,6 +4,8 @@ build/
 *.deb
 *.changes
 *.buildinfo
+# Fetched by make, checked against its hash: the model dictate-whisper ships.
+dictate-whisper/cache/
 # Python tooling.
 .venv/
 __pycache__/

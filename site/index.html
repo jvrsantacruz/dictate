@@ -81,19 +81,25 @@ footer { margin-top: 3rem; color: var(--muted); font-size: .82rem; text-align: c
 <p>Ubuntu 24.04 or later, GNOME on Wayland.</p>
 
 <h2 id="install">Install</h2>
-<div class="install"><pre><code id="install-line">sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources https://jvrsantacruz.github.io/dictate/dictate.sources &amp;&amp; sudo apt update &amp;&amp; sudo apt install dictate dictate-indicator &amp;&amp; dictate setup</code></pre>
-  <button type="button" id="copy" aria-label="Copy the install command">Copy</button></div>
-<p>You also need a transcriber: see the <a href="https://github.com/jvrsantacruz/dictate#a-transcriber">README</a>.</p>
+<p>Ubuntu 26.04 or later, with a local transcriber:</p>
+<div class="install"><pre><code id="install-local">sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources https://jvrsantacruz.github.io/dictate/dictate.sources &amp;&amp; sudo apt update &amp;&amp; sudo apt install dictate dictate-indicator dictate-whisper &amp;&amp; dictate setup</code></pre>
+  <button type="button" data-copy="install-local" aria-label="Copy the install command">Copy</button></div>
+<p>Ubuntu 24.04, or a transcriber of your own (<a href="https://github.com/jvrsantacruz/dictate#configure">configure it</a>):</p>
+<div class="install"><pre><code id="install-plain">sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources https://jvrsantacruz.github.io/dictate/dictate.sources &amp;&amp; sudo apt update &amp;&amp; sudo apt install dictate dictate-indicator &amp;&amp; dictate setup</code></pre>
+  <button type="button" data-copy="install-plain" aria-label="Copy the install command">Copy</button></div>
 
 <footer>dictate is free software under the <a href="https://github.com/jvrsantacruz/dictate/blob/main/LICENSE">GPL-3.0-or-later</a>.</footer>
 </main>
 <script>
-document.getElementById("copy").addEventListener("click", (e) => {
-  navigator.clipboard.writeText(document.getElementById("install-line").textContent).then(() => {
-    e.target.textContent = "Copied";
-    setTimeout(() => { e.target.textContent = "Copy"; }, 1500);
+for (const button of document.querySelectorAll("button[data-copy]")) {
+  button.addEventListener("click", () => {
+    const text = document.getElementById(button.dataset.copy).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      button.textContent = "Copied";
+      setTimeout(() => { button.textContent = "Copy"; }, 1500);
+    });
   });
-});
+}
 </script>
 </body>
 </html>

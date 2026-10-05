@@ -1,11 +1,12 @@
 # Development
 
-Three applications and their build scripts:
+Four packages and their build scripts:
 
 ```text
 dictate/            the program, its IBus engine and `dictate setup`
 dictate-indicator/  the tray icon
 dictate-uinput/     the udev rule that grants /dev/uinput, alone
+dictate-whisper/    whisper.cpp's server and the base model, as a user unit; 26.04 and later
 tools/              deb-version, deb-build, deb-check, apt-repo, apt-sources,
                     tray-screenshot
 ```

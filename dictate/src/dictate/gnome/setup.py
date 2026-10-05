@@ -37,6 +37,8 @@ IBUS_UNIT = "org.freedesktop.IBus.session.GNOME.service"
 TRAY_UNIT = "dictate-indicator.service"
 # ydotoold only for the methods that press keys.
 KEY_UNIT = "ydotool.service"
+# The dictate-whisper package's server, only while dictate would send it audio.
+TRANSCRIBER_UNIT = "dictate-whisper.service"
 ENGINE_WAIT = 15.0
 DEFAULT_SHORTCUTS = {"en": "<Super>i", "es": "<Super>e"}
 DEFAULT_LANGUAGES = ("en", "es")
@@ -143,6 +145,20 @@ def shortcuts(
         msg = f"no shortcut for {' '.join(missing)}: give --shortcut LANG=KEYS"
         raise SetupError(msg)
     return keys
+
+
+def wanted_units(cfg: config.Config) -> list[str]:
+    """The user units this configuration uses, when they are installed.
+
+    The transcriber only for the local backend at the default address, the one
+    its unit serves: a URL elsewhere means another server does the work.
+    """
+    units = [TRAY_UNIT]
+    if cfg.method in {"paste", "type"}:
+        units.append(KEY_UNIT)
+    if cfg.backend == "local" and cfg.url == config.Config.url:
+        units.append(TRANSCRIBER_UNIT)
+    return units
 
 
 def render_config(values: dict[str, str]) -> str:
@@ -429,12 +445,11 @@ def _tray_restart(s: Session) -> None:
         )  # fmt: skip
 
 
-def _units(s: Session, method: str) -> None:
+def _units(s: Session, cfg: config.Config) -> None:
     live = s.run(
         "systemctl", "--user", "is-active", "graphical-session.target", check=False
     )
-    units = [TRAY_UNIT, *([KEY_UNIT] if method in {"paste", "type"} else [])]
-    for unit in units:
+    for unit in wanted_units(cfg):
         if s.run("systemctl", "--user", "cat", unit, check=False).returncode != 0:
             continue
         enabled = s.run(
@@ -567,7 +582,7 @@ def main(argv: Sequence[str]) -> int:
         if _ibus(s, layout, program=os.path.realpath(sys.argv[0])):
             _sources(s, layout)
         _shortcuts(s, keys, command)
-        _units(s, cfg.method)
+        _units(s, cfg)
         _tray_restart(s)
         _ydotool_warning(s, cfg.method)
         _uinput_warning(s, cfg.method)

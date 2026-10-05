@@ -7,8 +7,13 @@
 # left behind. The older copy is this package repacked at version 0~old, so
 # the upgrade exercises file replacement without a second build. A container has no desktop, so the session
 # side is the integration tier's.
+#
+# ONLY_ON="name=release ..." limits a package to those releases: elsewhere it
+# is left out, and apt must refuse it, so the limit is checked rather than
+# assumed. A package with a whisper-server unit is run and asked to transcribe.
 set -euo pipefail
 releases=${RELEASES:-24.04 26.04}
+only_on=${ONLY_ON:-}
 debs=()
 for deb in "$@"; do debs+=("$(realpath "$deb")"); done
 old=$(mktemp -d)
@@ -22,7 +27,17 @@ for deb in "${debs[@]}"; do
 done
 mounts=(-v "$old:/old:ro")
 for deb in "${debs[@]}"; do mounts+=(-v "$deb:/debs/$(basename "$deb"):ro"); done
-names=$(for deb in "${debs[@]}"; do dpkg-deb -f "$deb" Package; done | tr '\n' ' ')
+
+# The packages that install on RELEASE, and those that must not, by name.
+allowed() {  # allowed NAME RELEASE
+  local entry limited=""
+  for entry in $only_on; do
+    [[ ${entry%%=*} == "$1" ]] || continue
+    limited=1
+    [[ ${entry#*=} == "$2" ]] && return 0
+  done
+  [[ -z $limited ]]
+}
 
 # Containers have no udev, so install scripts that reload it never run their
 # udev branch there: at least they must parse.
@@ -47,12 +62,30 @@ docker run --rm "${mounts[@]}" "ubuntu:$newest" bash -c '
 
 for release in $releases; do
   echo "== install, reinstall, remove, ubuntu:$release"
-  docker run --rm "${mounts[@]}" -e NAMES="$names" "ubuntu:$release" bash -c '
+  new="" old_debs="" names="" refused=""
+  for deb in "${debs[@]}"; do
+    name=$(dpkg-deb -f "$deb" Package)
+    base=$(basename "$deb")
+    if allowed "$name" "$release"; then
+      new+=" /debs/$base" old_debs+=" /old/${base%.deb}-old.deb" names+=" $name"
+    else
+      refused+=" /debs/$base"
+    fi
+  done
+  docker run --rm "${mounts[@]}" -e NEW="$new" -e OLD="$old_debs" -e NAMES="$names" \
+    -e REFUSED="$refused" "ubuntu:$release" bash -c '
     set -e
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq >/dev/null
-    apt-get install -qq -y /old/*.deb >/dev/null
-    apt-get install -qq -y /debs/*.deb >/dev/null
+    for deb in $REFUSED; do
+      if apt-get install -qq -s "$deb" >/dev/null 2>&1; then
+        echo "installs here, but is limited to other releases: $deb"; exit 1
+      fi
+      echo "refused here, as it should be: $(basename "$deb")"
+    done
+    [ -n "$NAMES" ] || exit 0
+    apt-get install -qq -y $OLD >/dev/null
+    apt-get install -qq -y $NEW >/dev/null
     echo "upgraded from 0~old"
     for name in $NAMES; do dpkg -s "$name" | grep -E "^(Package|Version|Status):"; done
     if command -v dictate >/dev/null; then
@@ -68,7 +101,40 @@ import dictate.gnome.engine, dictate.gnome.adapter, dictate.gnome.setup"
       dictate-indicator --help >/dev/null
       echo "dictate-indicator runs"
     fi
-    apt-get install -qq -y --reinstall /debs/*.deb >/dev/null
+    # The unit'"'"'s own command, so a model or flag it names is the one tested.
+    for unit in /usr/lib/systemd/user/*.service; do
+      [ -e "$unit" ] || continue
+      grep -q "^ExecStart=/usr/bin/whisper-server" "$unit" || continue
+      sed -n "s/^ExecStart=//p" "$unit" > /tmp/serve
+      sh /tmp/serve > /tmp/serve.log 2>&1 &
+      python3 - "$(basename "$unit")" <<"PY"
+import io, json, sys, time, urllib.request, uuid, wave
+buf = io.BytesIO()
+with wave.open(buf, "wb") as w:
+    w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+    w.writeframes(b"\0\0" * 16000)
+boundary = uuid.uuid4().hex
+body = (
+    f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.wav\"\r\n"
+    "Content-Type: audio/wav\r\n\r\n"
+).encode() + buf.getvalue() + f"\r\n--{boundary}--\r\n".encode()
+for _ in range(60):
+    try:
+        req = urllib.request.Request(
+            "http://127.0.0.1:8081/inference", body,
+            {"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        reply = json.load(urllib.request.urlopen(req, timeout=30))
+        break
+    except OSError:
+        time.sleep(1)
+else:
+    sys.exit(f"{sys.argv[1]}: the server never answered")
+assert "text" in reply, reply
+print(f"{sys.argv[1]} serves and transcribes")
+PY
+      kill %1
+    done
+    apt-get install -qq -y --reinstall $NEW >/dev/null
     files=$(for name in $NAMES; do dpkg -L "$name"; done | sort -u)
     # Purge, which removes too: these packages keep no config to purge later.
     apt-get purge -qq -y $NAMES >/dev/null

@@ -1,0 +1,17 @@
+# Installed by the dictate-whisper package. `dictate setup` enables it.
+[Unit]
+Description=whisper.cpp transcription server for dictate
+Documentation=https://github.com/jvrsantacruz/dictate
+
+[Service]
+Type=simple
+# Loopback only, dictate's default URL: nothing is published.
+ExecStart=/usr/bin/whisper-server --model /usr/share/dictate-whisper/ggml-base-q5_1.bin --host 127.0.0.1 --port 8081
+Restart=on-failure
+RestartSec=2
+# The model stays loaded, which is the point of a server: an utterance costs
+# its transcription, not a model load first.
+MemoryHigh=1G
+
+[Install]
+WantedBy=default.target

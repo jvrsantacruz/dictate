@@ -1,0 +1,16 @@
+Package: dictate-whisper
+Version: @VERSION@
+Architecture: all
+Maintainer: Javier Santacruz <javier.santacruz.lc@gmail.com>
+Section: sound
+Priority: optional
+Depends: whisper.cpp
+Enhances: dictate
+Homepage: https://github.com/jvrsantacruz/dictate
+Description: local transcriber for dictate, whisper.cpp with its base model
+ A user service that runs whisper.cpp's server on 127.0.0.1:8081, the
+ address dictate sends audio to by default, with the multilingual base
+ model. Speech is transcribed on this machine.
+ .
+ The package starts nothing: `dictate setup` enables the service for the
+ user who runs it. Needs whisper.cpp, packaged by Ubuntu 26.04 and later.

@@ -1,6 +1,9 @@
-# The three applications, built and checked together.
+# The four packages, built and checked together.
 
-APPS = dictate dictate-indicator dictate-uinput
+APPS = dictate dictate-indicator dictate-uinput dictate-whisper
+# Packages that install only where their dependencies exist: whisper.cpp is in
+# Ubuntu from 26.04.
+ONLY_ON = dictate-whisper=26.04
 
 .DEFAULT_GOAL := help
 .PHONY: help lint test deb deb-check clean
@@ -21,13 +24,13 @@ test:
 	$(MAKE) -C dictate test
 	$(MAKE) -C dictate-indicator test
 
-## deb        the three packages, into each app's dist/
+## deb        the four packages, into each app's dist/
 deb:
 	for app in $(APPS); do $(MAKE) -C $$app deb || exit 1; done
 
 ## deb-check  lintian, then upgrade, reinstall and purge in clean Ubuntu containers
 deb-check: deb
-	tools/deb-check $(foreach app,$(APPS),$(wildcard $(app)/dist/*.deb))
+	ONLY_ON="$(ONLY_ON)" tools/deb-check $(foreach app,$(APPS),$(wildcard $(app)/dist/*.deb))
 
 ## clean      remove every build output
 clean:

@@ -1,8 +1,11 @@
 """The merge rules of `dictate setup`, without a desktop."""
 
+from dataclasses import replace
+
 import pytest
 from hamcrest import assert_that, equal_to, is_
 
+from dictate import config
 from dictate.gnome import setup
 
 BASE = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/"
@@ -145,3 +148,32 @@ def test_the_machines_defaults_survive_a_plain_run(tmp_path, monkeypatch) -> Non
     assert_that("DICTATE_LANGUAGES" in user, is_(False))
     assert_that(merged["DICTATE_LANGUAGES"], is_(equal_to("en fr")))
     assert_that(merged["DICTATE_METHOD"], is_(equal_to("paste")))
+
+
+def test_the_units_follow_the_method_and_the_transcriber_url() -> None:
+    base = config.Config()
+    assert_that(
+        setup.wanted_units(base),
+        is_(equal_to(["dictate-indicator.service", "dictate-whisper.service"])),
+    )
+    assert_that(
+        setup.wanted_units(replace(base, method="paste")),
+        is_(
+            equal_to(
+                [
+                    "dictate-indicator.service",
+                    "ydotool.service",
+                    "dictate-whisper.service",
+                ]
+            )
+        ),
+    )
+
+
+def test_another_transcriber_leaves_dictate_whisper_off() -> None:
+    elsewhere = replace(config.Config(), url="http://127.0.0.1:9000")
+    remote = replace(config.Config(), backend="openai", url="https://api.example.com")
+    for cfg in (elsewhere, remote):
+        assert_that(
+            setup.wanted_units(cfg), is_(equal_to(["dictate-indicator.service"]))
+        )

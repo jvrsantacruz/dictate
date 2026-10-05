@@ -13,8 +13,7 @@ Speak into any text field on GNOME.
 </p>
 
 - **Local.** Speech is transcribed on your machine by [whisper.cpp](https://github.com/ggml-org/whisper.cpp).
-- **Into the right field.** An IBus input method inserts the text into the input that had focus when you started. If you moved away, the text waits on the clipboard instead of landing somewhere else.
-- **Any language whisper knows**, one shortcut each. English and Spanish out of the box.
+- **Into the right field.** An IBus input method inserts the text into the input that had focus when you started. When nothing is in focus the text is saved in the clipboard.
 - **Status at a glance**: a tray icon that blinks while recording, and an optional tmux segment.
 
 Runs on Ubuntu 24.04 or later, GNOME on Wayland.

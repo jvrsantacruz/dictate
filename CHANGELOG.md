@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- The apt repository is signed by a new key,
+  `0236 18A8 42F3 2549 E1A7  A820 2AB0 8318 A522 3B11`. 0.1.0 was never served from it.
+
 ## 0.1.0
 
 First public release.

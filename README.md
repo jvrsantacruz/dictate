@@ -38,7 +38,7 @@ SOURCES
 sudo apt update && sudo apt install dictate dictate-indicator
 ```
 
-The key's fingerprint is `0A27 F9EB C047 9474 8525  1125 EB2B 57D7 A916 CAFC`; check it with
+The key's fingerprint is `0236 18A8 42F3 2549 E1A7  A820 2AB0 8318 A522 3B11`; check it with
 `gpg --show-keys /etc/apt/keyrings/dictate.gpg`.
 
 Or download the `.deb` files from the

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2
 
 - Install with one file: `dictate.sources` on the site names the apt repository and holds its
   key. Existing installs keep working; the old keyring file and sources stay valid.

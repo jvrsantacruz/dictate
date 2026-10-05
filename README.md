@@ -12,7 +12,7 @@ Speak into any text field on GNOME.
 <a href="LICENSE"><img src="https://img.shields.io/github/license/jvrsantacruz/dictate" alt="License: GPL-3.0-or-later"></a>
 </p>
 
-- **Local.** Speech is transcribed on your machine by [whisper.cpp](https://github.com/ggml-org/whisper.cpp); nothing leaves it unless you point it elsewhere.
+- **Local.** Speech is transcribed on your machine by [whisper.cpp](https://github.com/ggml-org/whisper.cpp).
 - **Into the right field.** An IBus input method inserts the text into the input that had focus when you started. If you moved away, the text waits on the clipboard instead of landing somewhere else.
 - **Any language whisper knows**, one shortcut each. English and Spanish out of the box.
 - **Status at a glance**: a tray icon that blinks while recording, and an optional tmux segment.

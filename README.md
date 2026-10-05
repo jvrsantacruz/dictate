@@ -3,7 +3,7 @@
 <h1 align="center">dictate</h1>
 
 <p align="center">
-Speak into any text field on GNOME. Press a shortcut, talk, press it again: the text appears where your cursor was.
+Speak into any text field on GNOME.
 </p>
 
 <p align="center">

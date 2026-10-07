@@ -38,6 +38,9 @@ deb: $(CACHE)
 	install -Dm644 $(CACHE) $(ROOT)/usr/share/dictate-whisper/$(MODEL)
 	install -Dm644 data/dictate-whisper.service $(ROOT)/usr/lib/systemd/user/dictate-whisper.service
 	install -Dm644 packaging/copyright $(ROOT)/usr/share/doc/dictate-whisper/copyright
+	install -Dm644 packaging/lintian-overrides $(ROOT)/usr/share/lintian/overrides/dictate-whisper
+	@mkdir -p $(ROOT)/DEBIAN
+	sed -e 's|@UNITS@|dictate-whisper.service|' -e 's|@ONLY_WITH@||' $(TOOLS)/postinst-restart > $(ROOT)/DEBIAN/postinst
 	VERSION=$(VERSION) $(TOOLS)/deb-build $(ROOT) packaging/control $(DEB)
 
 ## deb-check  lintian, then upgrade, reinstall and purge in clean containers

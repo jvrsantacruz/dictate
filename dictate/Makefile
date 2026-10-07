@@ -55,6 +55,9 @@ deb: build
 	install -Dm644 packaging/dictate.1 $(ROOT)/usr/share/man/man1/dictate.1
 	install -Dm644 packaging/dictate-status.1 $(ROOT)/usr/share/man/man1/dictate-status.1
 	install -Dm644 packaging/copyright $(ROOT)/usr/share/doc/dictate/copyright
+	install -Dm644 packaging/lintian-overrides $(ROOT)/usr/share/lintian/overrides/dictate
+	@mkdir -p $(ROOT)/DEBIAN
+	sed -e 's|@UNITS@|org.freedesktop.IBus.session.GNOME.service|' -e 's|@ONLY_WITH@|/usr/bin/python3 /usr/bin/dictate engine|' $(TOOLS)/postinst-restart > $(ROOT)/DEBIAN/postinst
 	VERSION=$(VERSION) $(TOOLS)/deb-build $(ROOT) packaging/control $(DEB)
 
 ## deb-check    lintian, then install, reinstall and remove the package in a

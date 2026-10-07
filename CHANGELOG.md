@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- An upgrade restarts what runs, for every user: IBus where it runs the dictate engine, the tray
+  icon, the `dictate-whisper` server. Nothing stopped is started. `DICTATE_RESTART="false"` in
+  `/etc/dictate/config` turns it off.
+
 ## 0.1.5
 
 - `dictate-whisper`, a local transcriber for Ubuntu 26.04 and later: whisper.cpp's server with

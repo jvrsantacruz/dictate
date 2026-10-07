@@ -1,0 +1,4 @@
+# The postinst try-restarts a user unit per user, which deb-systemd-invoke
+# cannot: its --user restart starts a unit someone stopped. policy-rc.d is
+# asked first, as deb-systemd-invoke would.
+dictate-whisper: maintainer-script-calls-systemctl

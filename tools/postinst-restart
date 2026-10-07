@@ -1,0 +1,50 @@
+#!/bin/sh
+# postinst-restart: the template of a package's postinst. make fills @UNITS@,
+# the user units the package runs, and @ONLY_WITH@, a command line: when set,
+# only the users running it are restarted.
+#
+# On upgrade every part of dictate that runs is a user application, so it is
+# restarted for each user it runs for, and no one keeps the old code. With
+# try-restart: a unit stopped on purpose stays stopped. deb-systemd-invoke
+# would start one, and has no per user try-restart, so systemctl is called
+# here, asking policy-rc.d first as deb-systemd-invoke does.
+#
+# DICTATE_RESTART="false" in /etc/dictate/config turns it off: the new code
+# then runs from the next login.
+set -e
+units="@UNITS@"
+only_with="@ONLY_WITH@"
+
+allowed() {  # allowed UNIT: no policy-rc.d refuses its restart
+    command -v policy-rc.d >/dev/null 2>&1 || return 0
+    rc=0
+    policy-rc.d "$1" restart >/dev/null 2>&1 || rc=$?
+    [ "$rc" != 101 ]
+}
+
+users() {  # the uid of each running user manager, or of each running ONLY_WITH
+    if [ -n "$only_with" ]; then
+        for proc in /proc/[0-9]*; do
+            case "$(tr '\0' ' ' < "$proc/cmdline" 2>/dev/null)" in
+                "$only_with"*) stat -c %u "$proc" ;;
+            esac
+        done | sort -u
+    else
+        systemctl --no-legend list-units 'user@*.service' 2>/dev/null \
+            | sed -n 's/.*user@\([0-9][0-9]*\)\.service.*/\1/p'
+    fi
+}
+
+# An upgrade or a reinstall, on a running systemd, not inside a chroot.
+if [ "$1" = configure ] && [ -n "$2" ] && [ -d /run/systemd/system ] \
+    && ! { command -v ischroot >/dev/null 2>&1 && ischroot; } \
+    && ! grep -Eqs "^[[:space:]]*DICTATE_RESTART=[\"']?false[\"']?[[:space:]]*$" /etc/dictate/config
+then
+    for uid in $(users); do
+        for unit in $units; do
+            allowed "$unit" || continue
+            systemctl --user --machine "$uid@" try-restart "$unit" >/dev/null 2>&1 || true
+        done
+    done
+fi
+exit 0

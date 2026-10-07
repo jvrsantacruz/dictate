@@ -70,6 +70,10 @@ admin may write for every user and the package never ships; `~/.config/dictate/c
 `dictate setup` writes; and `DICTATE_*` variables in the environment. Both files are
 `KEY="value"` lines with the keys above. Running `dictate setup` again keeps what you set before.
 
+An upgrade restarts what runs for every user: the input method, the tray icon and the
+`dictate-whisper` server, never one that was stopped. `DICTATE_RESTART="false"` in
+`/etc/dictate/config` leaves the new version for the next login instead.
+
 `paste` and `type` press keys through [ydotool](https://github.com/ReimuNotMoe/ydotool) 1.0 or
 later, which needs write access to `/dev/uinput`. Installing `dictate-uinput` grants it to the
 user at the seat. It is a package of its own because that access is a choice: it is a virtual

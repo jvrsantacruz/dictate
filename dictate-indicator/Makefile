@@ -52,6 +52,9 @@ deb: build
 	install -Dm644 packaging/dictate-indicator.1 \
 		$(ROOT)/usr/share/man/man1/dictate-indicator.1
 	install -Dm644 packaging/copyright $(ROOT)/usr/share/doc/dictate-indicator/copyright
+	install -Dm644 packaging/lintian-overrides $(ROOT)/usr/share/lintian/overrides/dictate-indicator
+	@mkdir -p $(ROOT)/DEBIAN
+	sed -e 's|@UNITS@|dictate-indicator.service|' -e 's|@ONLY_WITH@||' $(TOOLS)/postinst-restart > $(ROOT)/DEBIAN/postinst
 	VERSION=$(VERSION) $(TOOLS)/deb-build $(ROOT) packaging/control $(DEB)
 
 ## deb-check  lintian, install, reinstall and remove in clean containers

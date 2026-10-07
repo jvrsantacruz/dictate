@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.6
 
 - An upgrade restarts what runs, for every user: IBus where it runs the dictate engine, the tray
   icon, the `dictate-whisper` server. Nothing stopped is started. `DICTATE_RESTART="false"` in

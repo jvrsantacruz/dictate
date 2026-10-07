@@ -17,7 +17,7 @@ only_on=${ONLY_ON:-}
 debs=()
 for deb in "$@"; do debs+=("$(realpath "$deb")"); done
 old=$(mktemp -d)
-trap 'rm -rf "$old"' EXIT
+trap 'rm -rf "$old" "${apt_conf:-}"' EXIT
 for deb in "${debs[@]}"; do
   tree="$old/tree"
   dpkg-deb -R "$deb" "$tree"
@@ -25,7 +25,12 @@ for deb in "${debs[@]}"; do
   dpkg-deb --root-owner-group -Zxz --build "$tree" "$old/$(basename "$deb" .deb)-old.deb" >/dev/null
   rm -rf "$tree"
 done
-mounts=(-v "$old:/old:ro")
+# A mirror that stops answering fails the check in minutes, not after the
+# job's limit: every container's apt gets timeouts and retries.
+apt_conf=$(mktemp)
+printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' 'Acquire::Retries "3";' > "$apt_conf"
+chmod 644 "$apt_conf"
+mounts=(-v "$old:/old:ro" -v "$apt_conf:/etc/apt/apt.conf.d/99deb-check:ro")
 for deb in "${debs[@]}"; do mounts+=(-v "$deb:/debs/$(basename "$deb"):ro"); done
 
 # The packages that install on RELEASE, and those that must not, by name.

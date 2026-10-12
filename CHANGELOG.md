@@ -1,11 +1,21 @@
 # Changelog
 
-## 0.2.1
+## 0.3.0
 
-- A short pause no longer becomes an ellipsis: "porque... no" is typed "porque no".
+- A hosted transcriber, with the local one as fallback: `DICTATE_BACKEND="openai"` sends to any
+  OpenAI-compatible service, such as whisper-large-v3-turbo on DeepInfra, and
+  `DICTATE_FALLBACK_URL` names a whisper server for when it fails or is slow. A notification says
+  when the fallback was used, and why. Streaming works with either; after one failure the rest of
+  a recording's pieces go straight to the fallback.
+- `DICTATE_URL` for `openai` is the API's base URL, as OpenAI's own clients take it:
+  `https://api.openai.com/v1`, `https://api.deepinfra.com/v1/openai`. A bare host still gets `/v1`.
+- Silence before and after speech is cut before sending: whisper no longer turns it into a closing
+  "Gracias.".
 - The typed text is the whole recording, transcribed at the second press: whisper punctuates it
   as one stream. The pieces still show while you speak, and stand in only if that transcription
   fails. In 0.2.0 the pieces were typed, each ended as a sentence of its own.
+- A short pause no longer becomes an ellipsis: "porque... no" is typed "porque no".
+- `dictate setup --fallback-url`.
 
 ## 0.2.0
 

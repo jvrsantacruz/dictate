@@ -14,7 +14,7 @@ Speak into any text field on GNOME.
 
 - **Local.** Speech is transcribed on your machine by [whisper.cpp](https://github.com/ggml-org/whisper.cpp).
 - **Into the right field.** An IBus input method inserts the text into the input that had focus when you started. When nothing is in focus the text is saved in the clipboard.
-- **Text while you speak.** The recording is transcribed piece by piece at each pause, and each piece shows in the field, underlined, until you stop. The text is ready a moment after the second press, however long you spoke.
+- **Text while you speak.** The recording is transcribed piece by piece at each pause, and each piece shows in the field, underlined, until you stop. Then the whole recording is transcribed once more, so the text typed reads as one stream.
 - **Nothing lost.** An optional log keeps every dictated text on your machine, readable with `dictate log`.
 - GNOME tray icon and status.
 

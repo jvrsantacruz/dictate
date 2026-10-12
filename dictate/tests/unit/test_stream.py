@@ -141,8 +141,8 @@ def test_the_worker_follows_a_growing_capture(
     p.wav.write_bytes(_wav(b"")[:40] + b"\0\0\0\0" + _frames(3, LOUD))
     worker.finishing = True
     assert_that(worker.run(), is_(equal_to(0)))
-    assert_that(p.stream_done.read_text(), is_(equal_to(f"{os.getpid()} ok")))
     assert_that(len(sent.pieces), is_(equal_to(1)))
+    assert_that(stream.text_so_far(p), is_(equal_to("piece1")))
 
 
 def test_a_deleted_capture_ends_the_worker(tmp_path: Path, monkeypatch: object) -> None:
@@ -158,7 +158,6 @@ def test_a_deleted_capture_ends_the_worker(tmp_path: Path, monkeypatch: object) 
 
     worker.take = take_then_delete  # type: ignore[method-assign]
     assert_that(worker.run(), is_(equal_to(1)))
-    assert_that(p.stream_done.exists(), is_(False))
 
 
 def test_a_worker_another_run_replaced_writes_nothing(
@@ -170,7 +169,7 @@ def test_a_worker_another_run_replaced_writes_nothing(
     worker.take(_frames(3, LOUD))
     with pytest.raises(stream.Orphan):
         worker.finish()
-    assert_that(p.stream_text.exists() or p.stream_done.exists(), is_(False))
+    assert_that(p.stream_text.exists(), is_(False))
 
 
 def test_a_short_word_after_a_long_pause_is_sent(
@@ -182,7 +181,7 @@ def test_a_short_word_after_a_long_pause_is_sent(
     assert_that(len(sent.pieces), is_(equal_to(1)))
 
 
-def test_a_failed_piece_says_failed(tmp_path: Path, monkeypatch: object) -> None:
+def test_a_failed_piece_ends_the_worker(tmp_path: Path, monkeypatch: object) -> None:
     worker, _ = _worker(tmp_path, monkeypatch)
 
     def refuse(*_args: object, **_kwargs: object) -> str:
@@ -194,40 +193,20 @@ def test_a_failed_piece_says_failed(tmp_path: Path, monkeypatch: object) -> None
     p.wav.write_bytes(_wav(_frames(3, LOUD)))
     worker.finishing = True
     assert_that(worker.run(), is_(equal_to(1)))
-    assert_that(p.stream_done.read_text(), is_(equal_to(f"{os.getpid()} failed")))
 
 
-def test_collect_reads_the_text_of_a_finished_worker(tmp_path: Path) -> None:
+def test_the_text_so_far_joins_the_pieces(tmp_path: Path) -> None:
     p = _paths(tmp_path)
-    p.stream_pid.write_text("1234")
     p.stream_text.write_text("Hola.\nQué tal.\n")
-    p.stream_done.write_text("1234 ok")
-    assert_that(stream.collect(p, 1), is_(equal_to("Hola. Qué tal.")))
+    assert_that(stream.text_so_far(p), is_(equal_to("Hola. Qué tal.")))
 
 
-def test_collect_ignores_an_earlier_workers_word(tmp_path: Path) -> None:
-    p = _paths(tmp_path)
-    p.stream_pid.write_text("1234")
-    p.stream_text.write_text("Hola.\n")
-    p.stream_done.write_text("999 ok")
-    assert_that(stream.collect(p, 0.1), is_(none()))
-
-
-def test_collect_after_a_failure_asks_for_the_whole_capture(tmp_path: Path) -> None:
-    p = _paths(tmp_path)
-    p.stream_pid.write_text("1234")
-    p.stream_text.write_text("Hola.\n")
-    p.stream_done.write_text("1234 failed")
-    assert_that(stream.collect(p, 1), is_(none()))
-
-
-def test_collect_with_no_worker_asks_for_the_whole_capture(tmp_path: Path) -> None:
-    assert_that(stream.collect(_paths(tmp_path), 1), is_(none()))
+def test_no_pieces_is_no_text(tmp_path: Path) -> None:
+    assert_that(stream.text_so_far(_paths(tmp_path)), is_(equal_to("")))
 
 
 def test_cleanup_deletes_the_words(tmp_path: Path) -> None:
     p = _paths(tmp_path)
     p.stream_text.write_text("Hola.\n")
-    p.stream_done.write_text(stream.OK)
     stream.cleanup(p)
-    assert_that(p.stream_text.exists() or p.stream_done.exists(), is_(False))
+    assert_that(p.stream_text.exists(), is_(False))

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+- A short pause no longer becomes an ellipsis: "porque... no" is typed "porque no".
+- The typed text is the whole recording, transcribed at the second press: whisper punctuates it
+  as one stream. The pieces still show while you speak, and stand in only if that transcription
+  fails. In 0.2.0 the pieces were typed, each ended as a sentence of its own.
+
 ## 0.2.0
 
 - Text while you speak: the recording is transcribed at each pause, so the text is ready about

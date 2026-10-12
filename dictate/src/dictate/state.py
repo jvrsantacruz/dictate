@@ -63,11 +63,6 @@ class Paths:
         return self.root / "stream.txt"
 
     @property
-    def stream_done(self) -> Path:
-        """Written last by the worker: `ok`, or `failed` to send the whole capture."""
-        return self.root / "stream.done"
-
-    @property
     def lock(self) -> Path:
         """Held for the whole of one press."""
         return self.root / "lock"

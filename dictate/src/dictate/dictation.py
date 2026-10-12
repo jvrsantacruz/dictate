@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from dictate import delivery, feedback, recorder, state, stream, textlog
 from dictate.desktop import DesktopError
 from dictate.feedback import FAILURE, START_CUE, STATE, STOP_CUE
-from dictate.transcribe import TIMEOUT, TranscribeError, transcribe
+from dictate.transcribe import TranscribeError, transcribe
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -170,7 +170,7 @@ class Dictation:
         self._fb.notify(STATE, f"recording ({lang})")
 
     def _transcript(self, lang: str, press: str | None) -> str:
-        """The text of the capture: the worker's when it has it, else the whole WAV.
+        """The text of the whole capture, or the pieces' when that fails.
 
         Every file of the capture is deleted on a failure; on success they stay
         until delivery, which may still need them.
@@ -181,13 +181,17 @@ class Dictation:
                 raise Failure(msg)  # noqa: TRY301 - the cleanup below covers it too
             self._publish(state.TRANSCRIBING, lang)
             self._fb.notify(STATE, "transcribing")
-            text = stream.collect(self._p, TIMEOUT) if self._streams() else None
-            if text is None:
-                self._unshow(press)
-                try:
-                    text = transcribe(self._cfg, lang, self._p.wav)
-                except TranscribeError as err:
+            # The pieces show while speaking; the typed text is the whole capture,
+            # which whisper punctuates as one stream. The pieces' text is kept
+            # only for a transcription that fails.
+            shown = stream.text_so_far(self._p) if self._streams() else ""
+            stream.stop(self._p)
+            try:
+                text = transcribe(self._cfg, lang, self._p.wav)
+            except TranscribeError as err:
+                if not shown:
                     raise Failure(str(err)) from err
+                text = shown
             if not text:
                 msg = "empty transcript"
                 raise Failure(msg)  # noqa: TRY301 - the cleanup below covers it too

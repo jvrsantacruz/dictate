@@ -2,17 +2,16 @@
 
 The first press starts `dictate stream LANG` beside the recorder. It reads the
 WAV as pw-record writes it, cuts it at pauses, and sends each piece as soon as
-it is cut, so the second press waits for the last piece, not the whole
-recording. The text goes to a file the second press reads; with the `ime`
-method each piece also shows in the input before it is typed.
+it is cut. Each piece goes to a file and, with the `ime` method, shows in the
+input before anything is typed.
 
     press 1   recorder ──> audio.wav, growing
               worker   ──> cut at a pause ──> whisper ──> stream.txt, preedit
-    press 2   recorder stopped, then SIGUSR1: the worker sends what is left,
-              writes stream.done and exits
+    press 2   recorder stopped, the worker ended; the whole capture is sent,
+              and its text is the one typed
 
-Any failure writes `failed`, and the second press sends the whole capture
-instead, as without streaming.
+Whisper punctuates each piece as a sentence of its own, so the pieces are
+shown, never typed: they stand in only when the whole capture fails.
 """
 
 from __future__ import annotations
@@ -57,8 +56,6 @@ POLL = 0.1
 PROMPT_CHARS = 200
 # How long the first press's worker waits for pw-record to create the file.
 OPEN_WAIT = 5.0
-OK = "ok"
-FAILED = "failed"
 # Past the recording cap, a worker no press came for finishes on its own.
 CAP_MARGIN = 10
 
@@ -240,9 +237,8 @@ class Worker:
         except Orphan:
             return 1
         except (TranscribeError, OSError, wave.Error):
-            self._write_done(FAILED)
+            # The second press transcribes the whole capture anyway.
             return 1
-        self._write_done(OK)
         return 0
 
     def _follow(self) -> None:
@@ -275,17 +271,6 @@ class Worker:
                     # the next press finds the text rather than a worker polling.
                     self.finishing = True
                 time.sleep(POLL)
-
-    def _write_done(self, outcome: str) -> None:
-        """`<pid> <outcome>`, so a press never takes another worker's word for it."""
-        if not self._mine():
-            return
-        if outcome == FAILED:
-            self.texts.clear()
-            self._show()
-        tmp = self._p.stream_done.with_suffix(".tmp")
-        tmp.write_text(f"{self._pid} {outcome}", encoding="utf-8")
-        tmp.replace(self._p.stream_done)
 
 
 def _ours(pid: int) -> bool:
@@ -327,40 +312,12 @@ def start(p: state.Paths, lang: str) -> int:
     return proc.pid
 
 
-def collect(p: state.Paths, wait: float) -> str | None:
-    """Finish the worker and wait: its text, or None to send the whole capture."""
-    try:
-        owner = p.stream_pid.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-    pid = running(p)
-    if pid is not None:
-        with contextlib.suppress(ProcessLookupError):
-            os.kill(pid, signal.SIGUSR1)
-    deadline = time.monotonic() + wait
-    while _done(p) is None and running(p) is not None:
-        if time.monotonic() > deadline:
-            break
-        time.sleep(0.05)
-    done = _done(p)
-    if done != (owner, OK):
-        # Failed, hung, or not this run's worker: none of its text is used.
-        stop(p)
-        return None
+def text_so_far(p: state.Paths) -> str:
+    """The pieces transcribed until now, joined; empty when there are none."""
     try:
         return " ".join(p.stream_text.read_text(encoding="utf-8").split())
-    except FileNotFoundError:
-        # No piece held speech: an empty text, which the second press reports.
-        return ""
-
-
-def _done(p: state.Paths) -> tuple[str, str] | None:
-    """The worker's last word, `(pid, outcome)`, or None before it has one."""
-    try:
-        pid, _, outcome = p.stream_done.read_text(encoding="utf-8").partition(" ")
     except OSError:
-        return None
-    return pid, outcome
+        return ""
 
 
 def stop(p: state.Paths) -> None:
@@ -374,7 +331,7 @@ def stop(p: state.Paths) -> None:
 def cleanup(p: state.Paths) -> None:
     """End the worker and delete its files: its text is a voice's words."""
     stop(p)
-    for f in (p.stream_pid, p.stream_text, p.stream_done):
+    for f in (p.stream_pid, p.stream_text):
         f.unlink(missing_ok=True)
 
 
@@ -385,11 +342,5 @@ def main(
     environ: Mapping[str, str],
     desktop: Callable[[], Desktop | None],
 ) -> int:
-    """`dictate stream LANG`: SIGUSR1 finishes, SIGTERM ends without text."""
-    worker = Worker(cfg, p, lang, environ, desktop)
-
-    def finish(_sig: int, _frame: object) -> None:
-        worker.finishing = True
-
-    signal.signal(signal.SIGUSR1, finish)
-    return worker.run()
+    """`dictate stream LANG`: runs until the press ends it, or the cap does."""
+    return Worker(cfg, p, lang, environ, desktop).run()

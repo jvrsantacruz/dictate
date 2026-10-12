@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0
+
+- Text while you speak: the recording is transcribed at each pause, so the text is ready about
+  one piece after the second press, however long you spoke. `DICTATE_STREAM="false"` sends the
+  whole recording at the end instead. The local backend only.
+- With the `ime` method each piece shows in the input, underlined, before it is typed. A key or a
+  focus change takes it off; the final text is what gets typed.
+- A transcript log, off by default: `DICTATE_LOG="true"` keeps every dictated text in
+  `~/.local/state/dictate/log`, for `DICTATE_LOG_DAYS` days, 30 by default. `dictate log` prints
+  the last entries. Only the final text of each dictation is logged, never the pieces. Nothing
+  from a password or PIN field is logged or shown.
+- When the dictate input source is not the one selected, the press and the delivery say so, as
+  a failure notification: switch to it with Super+Space. `DICTATE_NOTIFY="none"` silences it.
+- `dictate-whisper` serves with a 15 s audio window and Silero's voice activity model: about half
+  the wait for the same text.
+- `dictate setup --stream`, `--log` and `--log-days`.
+
 ## 0.1.6
 
 - An upgrade restarts what runs, for every user: IBus where it runs the dictate engine, the tray

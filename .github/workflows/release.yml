@@ -85,3 +85,49 @@ jobs:
       - uses: "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9"  # v5.0.0
       - id: "deploy"
         uses: "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346"  # v5.0.1
+
+  # The source package, signed by the key Launchpad knows, for each series the
+  # PPA builds. Skipped until the repository holds that key: release-keys
+  # ci-launchpad dictate. dictate-whisper is not in it, see debian/rules.
+  ppa:
+    runs-on: "ubuntu-24.04"
+    timeout-minutes: 30
+    needs: "build"
+    steps:
+      - name: "The Launchpad key is set"
+        id: "key"
+        env:
+          LAUNCHPAD_KEY: "${{ secrets.LAUNCHPAD_KEY }}"
+        run: |-
+          if [ -n "$LAUNCHPAD_KEY" ]; then
+            echo "set=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::no LAUNCHPAD_KEY: the PPA upload is skipped"
+          fi
+      - if: "steps.key.outputs.set == 'true'"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - if: "steps.key.outputs.set == 'true'"
+        name: "Install the source package tools"
+        run: "sudo apt-get update && sudo apt-get install -y --no-install-recommends debhelper devscripts dput"
+      - if: "steps.key.outputs.set == 'true'"
+        name: "Build, sign and upload the source packages"
+        env:
+          LAUNCHPAD_KEY: "${{ secrets.LAUNCHPAD_KEY }}"
+          LAUNCHPAD_KEY_PASSPHRASE: "${{ secrets.LAUNCHPAD_KEY_PASSPHRASE }}"
+        run: |-
+          printf '%s\n' "$LAUNCHPAD_KEY" | gpg --batch --import
+          fpr=$(gpg --batch --list-secret-keys --with-colons | awk -F: '$1 == "fpr" { print $10; exit }')
+          pass=$(mktemp)
+          printf '%s' "$LAUNCHPAD_KEY_PASSPHRASE" > "$pass"
+          version=${GITHUB_REF_NAME#v}
+          for series in noble resolute; do
+            tools/ppa-source "$version" "$series"
+          done
+          for changes in dist/ppa/*_source.changes; do
+            debsign -k"$fpr" -p"gpg --batch --pinentry-mode loopback --passphrase-file $pass" "$changes"
+            dput "ppa:jvrsantacruz/dictate" "$changes"
+          done
+          rm -f "$pass"

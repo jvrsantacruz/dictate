@@ -47,6 +47,11 @@ class Config:
     keys: str = "ydotool"
     # The XKB layout the engine types with, and the `type` method plans for.
     layout: str = "us+intl"
+    # Transcribe while recording, piece by piece: the local backend only.
+    stream: bool = True
+    # Keep every dictated text in a file of the user's, for this many days.
+    log: bool = False
+    log_days: int = 30
 
 
 def parse_file(text: str) -> dict[str, str]:
@@ -114,6 +119,14 @@ def build(values: Mapping[str, str]) -> Config:
         # timeout 0 means no limit, which is what the cap is there to prevent.
         msg = f"DICTATE_MAX_SECS must be above 0, not {max_secs}"
         raise ConfigError(msg)
+    try:
+        log_days = int(values.get("DICTATE_LOG_DAYS", d.log_days))
+    except ValueError as err:
+        msg = f"DICTATE_LOG_DAYS is not a number: {values['DICTATE_LOG_DAYS']}"
+        raise ConfigError(msg) from err
+    if log_days <= 0:
+        msg = f"DICTATE_LOG_DAYS must be above 0, not {log_days}"
+        raise ConfigError(msg)
     return Config(
         backend=values.get("DICTATE_BACKEND", d.backend),
         url=url,
@@ -127,6 +140,9 @@ def build(values: Mapping[str, str]) -> Config:
         sound=values.get("DICTATE_SOUND", "false") == "true",
         keys=keys,
         layout=values.get("DICTATE_LAYOUT", d.layout),
+        stream=values.get("DICTATE_STREAM", "true") == "true",
+        log=values.get("DICTATE_LOG", "false") == "true",
+        log_days=log_days,
     )
 
 

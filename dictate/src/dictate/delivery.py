@@ -12,6 +12,10 @@ from typing import TYPE_CHECKING
 from dictate import keymap
 from dictate.desktop import DesktopError
 
+# Told when the engine is not the input source in use, at the press and at
+# delivery: the one cause of no focus a person can fix with a key.
+NOT_SELECTED = "the dictate input source is not selected; switch to it with Super+Space"
+
 if TYPE_CHECKING:
     from dictate.desktop import Desktop
 
@@ -60,6 +64,8 @@ def _deliver(  # noqa: C901, PLR0911 - one guard per way delivery can be unsafe
     now = desktop.focus()
     if now is None:
         return _fallback(desktop, text, "focus is unknown now")
+    if not now.active:
+        return _fallback(desktop, text, NOT_SELECTED)
     if not now.focused:
         return _fallback(desktop, text, "no input has focus")
     if now.token != press:

@@ -23,9 +23,18 @@ class Tracker:
     changes: int = 0
     holder: int | None = None
     purposes: dict[int, int] = field(default_factory=dict)
+    # Whether this engine is the input source in use. Another source chosen,
+    # such as a plain layout, and the engine sees no focus at all. True until
+    # told otherwise: after an IBus restart no enable may come until a focus.
+    active: bool = True
+
+    def enable(self) -> None:
+        """The engine became the input source in use."""
+        self.active = True
 
     def focus_in(self, engine: int) -> None:
         """An engine instance gained focus."""
+        self.active = True
         self.changes += 1
         self.holder = engine
 
@@ -45,6 +54,7 @@ class Tracker:
         The input's purpose is kept: IBus does not repeat an unchanged one when
         the engine comes back, and a terminal must still get its paste key.
         """
+        self.active = False
         self.changes += 1
         if self.holder == engine:
             self.holder = None

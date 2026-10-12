@@ -104,3 +104,23 @@ def test_a_url_that_could_leak_audio_is_refused(url: str) -> None:
 )
 def test_loopback_http_and_any_https_are_accepted(url: str) -> None:
     assert_that(config.build({"DICTATE_URL": url}).url, is_(equal_to(url)))
+
+
+def test_streaming_is_on_unless_false() -> None:
+    assert_that(config.build({}).stream, is_(True))
+    assert_that(config.build({"DICTATE_STREAM": "false"}).stream, is_(False))
+
+
+def test_the_log_is_off_unless_true() -> None:
+    assert_that(config.build({}).log, is_(False))
+    assert_that(config.build({"DICTATE_LOG": "true"}).log, is_(True))
+
+
+def test_log_days_of_zero_are_refused() -> None:
+    with pytest.raises(config.ConfigError):
+        config.build({"DICTATE_LOG_DAYS": "0"})
+
+
+def test_log_days_that_are_not_a_number_are_refused() -> None:
+    with pytest.raises(config.ConfigError):
+        config.build({"DICTATE_LOG_DAYS": "a month"})

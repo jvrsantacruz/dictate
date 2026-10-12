@@ -89,11 +89,23 @@ class GnomeWayland:
         if reply is None:
             return None
         self._purpose = reply[2]
-        return Focus(reply[0], focused=reply[1])
+        secret = reply[2] in engine_bus.SECRET_PURPOSES
+        # Asked only when nothing is focused, the one case it explains. An
+        # engine older than the question answers nothing: taken as active.
+        active = True
+        if not reply[1]:
+            answer = self._call("Active")
+            active = bool(answer[0]) if answer else True
+        return Focus(reply[0], focused=reply[1], secret=secret, active=active)
 
     def commit(self, text: str, token: str) -> bool:
         """The engine checks the token and inserts, in one step."""
         reply = self._call("Commit", GLib.Variant("(ss)", (text, token)))
+        return bool(reply and reply[0])
+
+    def show(self, text: str, token: str) -> bool:
+        """The engine shows the text as preedit, checking the token as commit does."""
+        reply = self._call("Preedit", GLib.Variant("(ss)", (text, token)))
         return bool(reply and reply[0])
 
     def type_chords(self, chords: Sequence[Chord]) -> None:

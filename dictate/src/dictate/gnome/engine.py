@@ -24,11 +24,27 @@ from dictate.gnome.focus import Tracker  # noqa: E402
 
 log = logging.getLogger(__name__)
 
-# IBus input purposes of fields that hold secrets: password and PIN.
-SECRET_PURPOSES = (8, 9)
+# Keys that change no text: pressing one alone leaves dictated text shown.
+MODIFIERS = frozenset(
+    getattr(IBus, f"KEY_{name}")
+    for name in (
+        "Shift_L", "Shift_R", "Control_L", "Control_R", "Alt_L", "Alt_R",
+        "Super_L", "Super_R", "Meta_L", "Meta_R", "ISO_Level3_Shift", "Caps_Lock",
+    )
+)  # fmt: skip
 
 tracker = Tracker()
 engines: dict[int, Engine] = {}
+# The engines showing dictated text as preedit. IBus builds engines from C, so
+# this lives here rather than on the instance.
+showing: set[int] = set()
+
+
+def _clear(engine: Engine) -> None:
+    """Take dictated text off the input, if this engine shows any."""
+    if id(engine) in showing:
+        showing.discard(id(engine))
+        engine.update_preedit_text(IBus.Text.new_from_string(""), 0, False)  # noqa: FBT003
 
 
 class Engine(IBus.EngineSimple):
@@ -51,16 +67,30 @@ class Engine(IBus.EngineSimple):
         tracker.focus_in(id(self))
         log.debug("focus in id %s", tracker.token)
 
+    def do_process_key_event(self, keyval: int, keycode: int, state: int) -> bool:
+        """A key typed while dictated text shows takes it off, then types as usual."""
+        if not state & IBus.ModifierType.RELEASE_MASK and keyval not in MODIFIERS:
+            _clear(self)
+        return IBus.EngineSimple.do_process_key_event(self, keyval, keycode, state)
+
     def do_focus_out(self) -> None:
         """The input lost focus."""
+        _clear(self)
         tracker.focus_out(id(self))
         log.debug("focus out %s", tracker.token)
         IBus.EngineSimple.do_focus_out(self)
 
     def do_focus_out_id(self, _object_path: str) -> None:
         """The newer form of focus out."""
+        _clear(self)
         tracker.focus_out(id(self))
         log.debug("focus out id %s", tracker.token)
+
+    def do_enable(self) -> None:
+        """Chosen as the input source."""
+        tracker.enable()
+        log.debug("enable")
+        IBus.EngineSimple.do_enable(self)
 
     def do_disable(self) -> None:
         """Another input source was chosen: from here on, focus is not seen.
@@ -68,6 +98,7 @@ class Engine(IBus.EngineSimple):
         Counted as focus leaving, so a dictation started before the switch
         falls back rather than trusting a token nothing updates any more.
         """
+        _clear(self)
         tracker.disable(id(self))
         log.debug("disable %s", tracker.token)
         IBus.EngineSimple.do_disable(self)
@@ -81,7 +112,17 @@ class Engine(IBus.EngineSimple):
         """The input context went away."""
         tracker.forget(id(self))
         engines.pop(id(self), None)
+        showing.discard(id(self))
         IBus.EngineSimple.do_destroy(self)
+
+
+def _holder(token: str) -> Engine | None:
+    """The engine of the input that holds `token`, never a password or PIN field."""
+    holder = tracker.may_commit(token)
+    secret = engine_bus.SECRET_PURPOSES
+    if holder is not None and tracker.purposes.get(holder) in secret:
+        holder = None
+    return engines.get(holder) if holder is not None else None
 
 
 def _on_call(
@@ -96,14 +137,29 @@ def _on_call(
     if method == "Focus":
         invocation.return_value(GLib.Variant("(sbu)", tracker.snapshot()))
         return
+    if method == "Active":
+        invocation.return_value(GLib.Variant("(b)", (tracker.active,)))
+        return
+    if method == "Preedit":
+        text, token = params.unpack()
+        engine = _holder(token)
+        if engine is not None and text:
+            showing.add(id(engine))
+            # CLEAR: the shown text is dropped, never committed, when focus leaves.
+            engine.update_preedit_text_with_mode(
+                IBus.Text.new_from_string(text), len(text), True,  # noqa: FBT003
+                IBus.PreeditFocusMode.CLEAR,
+            )  # fmt: skip
+        elif engine is not None:
+            _clear(engine)
+        log.debug("preedit %s", "shown" if engine else "refused")
+        invocation.return_value(GLib.Variant("(b)", (engine is not None,)))
+        return
     if method == "Commit":
         text, token = params.unpack()
-        holder = tracker.may_commit(token)
-        if holder is not None and tracker.purposes.get(holder) in SECRET_PURPOSES:
-            # Never into a password or PIN field.
-            holder = None
-        engine = engines.get(holder) if holder is not None else None
+        engine = _holder(token)
         if engine is not None:
+            _clear(engine)
             engine.commit_text(IBus.Text.new_from_string(text))
         log.debug("commit %s", "done" if engine else "refused")
         invocation.return_value(GLib.Variant("(b)", (engine is not None,)))

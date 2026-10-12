@@ -3,6 +3,8 @@
 dictate [LANG]          toggle a recording in LANG
 dictate cancel          stop and discard a recording
 dictate status          print recording or idle
+dictate log [N]         print the last N dictated texts, 20 by default
+dictate stream LANG     the streaming worker; the first press starts it
 dictate engine --ibus   the IBus engine; IBus starts it
 dictate engines         the engine's description, on the user's layout; IBus
                         runs it
@@ -16,11 +18,11 @@ import logging
 import os
 import sys
 
-from dictate import config, desktop, recorder, state
+from dictate import config, desktop, recorder, state, stream, textlog
 from dictate.dictation import Dictation
 from dictate.feedback import FAILURE, Feedback
 
-USAGE = "usage: dictate [{langs}|status|cancel]"
+USAGE = "usage: dictate [{langs}|status|cancel|log [N]]"
 
 
 def _desktop(cfg: config.Config) -> desktop.Desktop | None:
@@ -44,6 +46,25 @@ def _engines() -> int:
     if not valid_layout(layout):
         layout = config.Config.layout
     print(engines(layout), end="")
+    return 0
+
+
+def _unlocked(
+    command: str, args: list[str], cfg: config.Config, paths: state.Paths
+) -> int:
+    """The commands that never take the press lock.
+
+    `stream` is started by the first press, which holds the lock while it runs.
+    """
+    if command == "stream":
+        lang = args[0] if args else cfg.default_lang
+        return stream.main(cfg, paths, lang, os.environ, lambda: _desktop(cfg))
+    count = args[0] if args else "20"
+    if not count.isdigit():
+        print(USAGE.format(langs="|".join(cfg.languages)), file=sys.stderr)
+        return 2
+    for entry in textlog.tail(os.environ, int(count)):
+        print(entry)
     return 0
 
 
@@ -86,6 +107,8 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
     if command == "status":
         print("recording" if recorder.running(paths) else "idle")
         return 0
+    if command in ("log", "stream"):
+        return _unlocked(command, args[1:], cfg, paths)
     lang = command or cfg.default_lang
     if command != "cancel" and lang not in cfg.languages:
         # A typo in the shortcut would otherwise reach whisper mid-transcription.

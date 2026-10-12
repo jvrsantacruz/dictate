@@ -41,22 +41,33 @@ def test_the_form_carries_the_fields_and_the_audio() -> None:
 def test_the_local_backend_posts_to_inference(tmp_path: Path) -> None:
     wav = tmp_path / "a.wav"
     wav.write_bytes(b"RIFF")
-    url, _, _ = transcribe.request(config.Config(url="http://x:1"), "en", wav)
+    cfg = config.Config(url="http://x:1")
+    url, _, _ = transcribe.request(cfg, "en", wav.read_bytes())
     assert_that(url, is_(equal_to("http://x:1/inference")))
+
+
+def test_the_local_backend_sends_the_text_before_as_prompt() -> None:
+    _, _, body = transcribe.request(config.Config(), "es", b"RIFF", prompt="Hola.")
+    assert_that(body.decode(), contains_string('name="prompt"\r\n\r\nHola.\r\n'))
+
+
+def test_no_prompt_sends_no_prompt_field() -> None:
+    _, _, body = transcribe.request(config.Config(), "es", b"RIFF")
+    assert_that('name="prompt"' in body.decode(), is_(False))
 
 
 def test_the_openai_backend_needs_a_key_command(tmp_path: Path) -> None:
     wav = tmp_path / "a.wav"
     wav.write_bytes(b"RIFF")
     with pytest.raises(transcribe.TranscribeError):
-        transcribe.request(config.Config(backend="openai"), "en", wav)
+        transcribe.request(config.Config(backend="openai"), "en", wav.read_bytes())
 
 
 def test_the_openai_backend_reads_the_key_from_the_command(tmp_path: Path) -> None:
     wav = tmp_path / "a.wav"
     wav.write_bytes(b"RIFF")
     cfg = config.Config(backend="openai", url="http://x:1", key_cmd="echo sk-test")
-    url, headers, _ = transcribe.request(cfg, "en", wav)
+    url, headers, _ = transcribe.request(cfg, "en", wav.read_bytes())
     assert_that(url, is_(equal_to("http://x:1/v1/audio/transcriptions")))
     assert_that(headers["Authorization"], is_(equal_to("Bearer sk-test")))
 

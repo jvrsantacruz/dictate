@@ -126,3 +126,14 @@ def test_only_xkb_shaped_layouts_are_written() -> None:
     assert_that(component.valid_layout("us+intl"), is_(True))
     assert_that(component.valid_layout("de"), is_(True))
     assert_that(component.valid_layout("us</layout><x>"), is_(False))
+
+
+def test_the_engine_is_active_once_enabled_and_not_after_disable() -> None:
+    t = Tracker()
+    assert_that(t.active, is_(True))
+    t.enable()
+    assert_that(t.active, is_(True))
+    t.disable(1)
+    assert_that(t.active, is_(False))
+    t.focus_in(1)
+    assert_that(t.active, is_(True))

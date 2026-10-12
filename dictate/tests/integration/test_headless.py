@@ -92,6 +92,17 @@ def _recorders() -> int:
     return int(found.stdout.strip() or 0)
 
 
+def _workers() -> int:
+    """Streaming workers of the artifact under test."""
+    found = subprocess.run(
+        ["pgrep", "-c", "-f", f"{ENV['ARTIFACT']} stream"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return int(found.stdout.strip() or 0)
+
+
 def _escape() -> None:
     """Close the overview GNOME starts in: no window is focused while it shows."""
     _keys(1)
@@ -174,6 +185,9 @@ class Case(unittest.TestCase):
         self.assertEqual(run.ydotool_log.read_text(), "", "ydotool used headless")
         time.sleep(0.3)
         self.assertEqual(_recorders(), 0, "a recorder outlived its dictation")
+        self.assertEqual(_workers(), 0, "a streaming worker outlived its dictation")
+        left = sorted(f.name for f in (ROOT / "run" / "dictate").glob("stream.*"))
+        self.assertEqual(left, [], "streaming files outlived their dictation")
 
     def failures(self) -> str:
         return run.notifications()
@@ -208,6 +222,15 @@ class Gtk3Ime(Delivered, Case):
     method = "ime"
 
 
+class Gtk3ImeWhole(Case):
+    """Streaming off: the whole capture is sent at the second press, as before."""
+
+    def test_the_whole_capture_is_delivered(self) -> None:
+        result = run.dictate("ime", DICTATE_STREAM="false")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.win.texts(), [EXPECTED, ""])
+
+
 class Gtk3Paste(Delivered, Case):
     method = "paste"
 
@@ -236,6 +259,44 @@ class Keys:
         _keys(a, apostrophe, e, apostrophe, space)
         time.sleep(0.3)
         self.assertEqual(self.win.texts()[0], "aé'")
+
+
+def _engine(method: str, signature: str = "", *args: str) -> tuple:
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION)
+    params = GLib.Variant(signature, args) if signature else None
+    reply = bus.call_sync(
+        engine_bus.NAME, engine_bus.PATH, engine_bus.INTERFACE, method, params,
+        None, Gio.DBusCallFlags.NONE, 1000, None,
+    )  # fmt: skip
+    return reply.unpack()
+
+
+class LiveText:
+    """Text shown while recording is never typed; the commit is the final text."""
+
+    def test_shown_text_is_not_typed_and_the_commit_replaces_it(self) -> None:
+        token = _engine("Focus")[0]
+        self.assertEqual(_engine("Preedit", "(ss)", "un lugar", token), (True,))
+        time.sleep(0.3)
+        self.assertEqual(self.win.texts()[0], "")
+        self.assertEqual(_engine("Commit", "(ss)", "En un lugar.", token), (True,))
+        time.sleep(0.3)
+        self.assertEqual(self.win.texts()[0], "En un lugar.")
+
+    def test_focus_moving_takes_the_shown_text_off(self) -> None:
+        token = _engine("Focus")[0]
+        _engine("Preedit", "(ss)", "un lugar", token)
+        self.win.focus("2")
+        self.assertEqual(self.win.texts(), ["", ""])
+        self.assertEqual(_engine("Preedit", "(ss)", "más", token), (False,))
+
+
+class Gtk3LiveText(LiveText, Case):
+    pass
+
+
+class Gtk4LiveText(LiveText, Case):
+    window = "4"
 
 
 class Gtk3Keys(Keys, Case):

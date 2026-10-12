@@ -94,12 +94,20 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         raise TranscribeError(msg)
 
 
-def request(cfg: Config, lang: str, wav: Path) -> tuple[str, dict[str, str], bytes]:
-    """The URL, headers and body for this backend."""
-    audio = wav.read_bytes()
+def request(
+    cfg: Config, lang: str, audio: bytes, prompt: str = ""
+) -> tuple[str, dict[str, str], bytes]:
+    """The URL, headers and body for this backend.
+
+    `prompt` is the text said before this audio, which keeps names and casing
+    the same across the pieces of one recording. Only the local backend gets it.
+    """
     if cfg.backend == "local":
         # whisper-server 1.8.x serves /inference only.
-        body, ctype = multipart({"language": lang, "response_format": "json"}, audio)
+        fields = {"language": lang, "response_format": "json"}
+        if prompt:
+            fields["prompt"] = prompt
+        body, ctype = multipart(fields, audio)
         return f"{cfg.url}/inference", {"Content-Type": ctype}, body
     if cfg.backend == "openai":
         if not cfg.key_cmd:
@@ -117,7 +125,17 @@ def request(cfg: Config, lang: str, wav: Path) -> tuple[str, dict[str, str], byt
 def transcribe(cfg: Config, lang: str, wav: Path) -> str:
     """Send the capture and return the cleaned text."""
     try:
-        url, headers, body = request(cfg, lang, wav)
+        audio = wav.read_bytes()
+    except OSError as err:
+        msg = f"could not read the capture: {err}"
+        raise TranscribeError(msg) from err
+    return transcribe_audio(cfg, lang, audio)
+
+
+def transcribe_audio(cfg: Config, lang: str, audio: bytes, prompt: str = "") -> str:
+    """Send one WAV, whole or a piece of a recording, and return the cleaned text."""
+    try:
+        url, headers, body = request(cfg, lang, audio, prompt)
     except (OSError, ValueError) as err:
         msg = f"could not build the request: {err}"
         raise TranscribeError(msg) from err

@@ -54,6 +54,9 @@ FLAGS = {
     "key_cmd": "DICTATE_KEY_CMD",
     "max_secs": "DICTATE_MAX_SECS",
     "default_lang": "DICTATE_LANG",
+    "stream": "DICTATE_STREAM",
+    "log": "DICTATE_LOG",
+    "log_days": "DICTATE_LOG_DAYS",
 }
 
 
@@ -532,6 +535,11 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--key-cmd", dest="key_cmd")
     p.add_argument("--max-secs", dest="max_secs", type=int)
     p.add_argument("--default-lang", dest="default_lang")
+    p.add_argument(
+        "--stream", choices=("true", "false"), help="transcribe while recording"
+    )
+    p.add_argument("--log", choices=("true", "false"), help="keep every dictated text")
+    p.add_argument("--log-days", dest="log_days", type=int, metavar="DAYS")
     p.add_argument("--command", help="what the shortcuts run (default: this program)")
     p.add_argument(
         "--dry-run", action="store_true", help="print the changes, make none"

@@ -32,6 +32,11 @@ class Focus:
 
     token: str
     focused: bool
+    # A password or PIN field: nothing is shown in it or logged from it.
+    secret: bool = False
+    # False when the desktop's input source is not the one that sees focus,
+    # which is why nothing is focused, rather than nothing to type into.
+    active: bool = True
 
 
 @dataclass(frozen=True)
@@ -49,8 +54,8 @@ class Clip:
 class Desktop(Protocol):
     """What delivery needs from a desktop.
 
-    Every method but `focus` and `commit` raises `DesktopError` when it fails;
-    those two answer None and False instead, since both are questions.
+    Every method but `focus`, `commit` and `show` raises `DesktopError` when it
+    fails; those answer None and False instead, since they are questions.
     """
 
     def focus(self) -> Focus | None:
@@ -59,6 +64,13 @@ class Desktop(Protocol):
 
     def commit(self, text: str, token: str) -> bool:
         """Insert the text, only if focus is still `token`."""
+        ...
+
+    def show(self, text: str, token: str) -> bool:
+        """Show text in the input as not yet typed, only if focus is still `token`.
+
+        Empty text clears it. False where the desktop cannot show it.
+        """
         ...
 
     def type_chords(self, chords: Sequence[Chord]) -> None:

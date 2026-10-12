@@ -48,6 +48,26 @@ class Paths:
         return self.root / "press"
 
     @property
+    def secret(self) -> Path:
+        """Present when the input at the press holds a password or a PIN."""
+        return self.root / "secret"
+
+    @property
+    def stream_pid(self) -> Path:
+        """The streaming worker, so the second press can finish it."""
+        return self.root / "stream.pid"
+
+    @property
+    def stream_text(self) -> Path:
+        """The worker's text, one line per piece."""
+        return self.root / "stream.txt"
+
+    @property
+    def stream_done(self) -> Path:
+        """Written last by the worker: `ok`, or `failed` to send the whole capture."""
+        return self.root / "stream.done"
+
+    @property
     def lock(self) -> Path:
         """Held for the whole of one press."""
         return self.root / "lock"

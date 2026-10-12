@@ -5,6 +5,9 @@ dictate \- dictation into the focused input on GNOME on Wayland
 .B dictate
 .RI [ LANG | status | cancel ]
 .br
+.B dictate log
+.RI [ N ]
+.br
 .B dictate setup
 .RI [ options ]
 .SH DESCRIPTION
@@ -13,6 +16,9 @@ input that had focus at the first. Bound to one shortcut per language by
 .BR "dictate setup" ,
 which also sets the input source and writes
 .IR ~/.config/dictate/config .
+While recording, the audio is transcribed at each pause, so the text is ready
+soon after the second press; with the ime method it shows in the input,
+underlined, until then.
 Run
 .B dictate setup \-\-help
 for its options.
@@ -30,6 +36,14 @@ environment wins over both.
 .I $XDG_RUNTIME_DIR/dictate/state
 The current phase, read by the tray icon and
 .BR dictate-status (1).
+.TP
+.I ~/.local/state/dictate/log
+Every dictated text, when DICTATE_LOG="true": time, language, outcome and
+text, one per line, readable by the user alone.
+.B dictate log
+prints the last
+.I N
+entries, 20 by default.
 .SH SEE ALSO
 .BR dictate-status (1),
 .BR dictate-indicator (1)

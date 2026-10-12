@@ -159,3 +159,10 @@ def test_a_paste_the_application_did_not_take_leaves_the_text_on_the_clipboard()
     result = deliver("hola", "paste", TOKEN, d)
     assert_that(result.delivered, is_(False))
     assert_that(d.clipboard, is_(equal_to(Clip(text="hola"))))
+
+
+def test_an_input_source_not_selected_says_so() -> None:
+    desktop = FakeDesktop(now=Focus(TOKEN, focused=False, active=False))
+    result = deliver("hola", "ime", TOKEN, desktop)
+    assert_that(result.delivered, is_(False))
+    assert_that(result.reason, contains_string("not selected"))

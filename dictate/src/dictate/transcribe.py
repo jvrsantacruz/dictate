@@ -23,6 +23,9 @@ KEY_TIMEOUT = 30
 # transcript that is nothing but such tags means nothing was said.
 # One place for whitespace between tags, so the match cannot backtrack.
 NONSPEECH = re.compile(r"^\s*(?:[\[(][^\])]*[\])]\s*)+$")
+# Whisper writes a short pause as an ellipsis, "porque... no". Dictated text
+# has no use for them: inside a sentence one becomes a space, at the end none.
+ELLIPSIS = re.compile(r"\s*(?:\.{3,}|\u2026)(\s*)")
 
 
 class TranscribeError(RuntimeError):
@@ -56,6 +59,7 @@ def clean(text: str) -> str:
     Every control and format character goes too: the text is typed into
     terminals, where one such byte can run a line or reorder what is shown.
     """
+    text = ELLIPSIS.sub(lambda m: " " if m.group(1) else "", text)
     text = " ".join(text.split())
     text = "".join(c for c in text if not unicodedata.category(c).startswith("C"))
     return "" if NONSPEECH.match(text) else text

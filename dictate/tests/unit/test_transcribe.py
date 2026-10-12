@@ -15,6 +15,13 @@ def test_segments_become_one_line() -> None:
     )
 
 
+def test_a_pause_written_as_an_ellipsis_is_dropped() -> None:
+    assert_that(
+        transcribe.clean("Para... hacer la exploración de\u2026 autores. Que..."),
+        is_(equal_to("Para hacer la exploración de autores. Que")),
+    )
+
+
 def test_nonspeech_tags_alone_are_empty() -> None:
     assert_that(transcribe.clean("[BLANK_AUDIO] (wind blowing)"), is_(equal_to("")))
 

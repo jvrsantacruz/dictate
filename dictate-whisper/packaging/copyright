@@ -15,6 +15,14 @@ Comment: OpenAI's Whisper base model, converted and quantized for whisper.cpp.
  5359861c739e955e79d9a303bcbc70fb988958b1.
 License: Expat
 
+Files: usr/share/dictate-whisper/ggml-silero-v5.1.2.bin
+Copyright: 2020-2026 Silero Team
+           2025-2026 ggml authors
+Comment: Silero VAD v5.1.2, converted for whisper.cpp. From
+ https://huggingface.co/ggml-org/whisper-vad at revision
+ 9ffd54a1e1ee413ddf265af9913beaf518d1639b.
+License: Expat
+
 License: GPL-3+
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by

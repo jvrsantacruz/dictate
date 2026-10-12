@@ -6,7 +6,13 @@ Documentation=https://github.com/jvrsantacruz/dictate
 [Service]
 Type=simple
 # Loopback only, dictate's default URL: nothing is published.
-ExecStart=/usr/bin/whisper-server --model /usr/share/dictate-whisper/ggml-base-q5_1.bin --host 127.0.0.1 --port 8081
+# A 15 s audio window, a third of whisper's work for 30 s, and the voice
+# activity model that cuts speech into pieces it holds. Below 15 s whisper
+# repeats itself; without the cuts a longer piece is lost.
+ExecStart=/usr/bin/whisper-server --model /usr/share/dictate-whisper/ggml-base-q5_1.bin \
+  --host 127.0.0.1 --port 8081 \
+  --audio-ctx 750 --vad --vad-model /usr/share/dictate-whisper/ggml-silero-v5.1.2.bin \
+  --vad-max-speech-duration-s 14
 Restart=on-failure
 RestartSec=2
 # The model stays loaded, which is the point of a server: an utterance costs

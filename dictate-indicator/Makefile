@@ -13,7 +13,7 @@ DEB      = dist/dictate-indicator_$(VERSION)_all.deb
 ROOT     = build/deb
 
 .DEFAULT_GOAL := help
-.PHONY: help build deb deb-check lint test run clean
+.PHONY: help build stage deb deb-check lint test run clean
 
 ## help     this list
 help:
@@ -44,8 +44,10 @@ build:
 	@ls -l $(ARTIFACT)
 
 ## deb      the apt package, $(DEB)
-deb: build
-	@rm -rf $(ROOT) dist/dictate-indicator_*.deb
+## stage        the installed files under $(ROOT), and the postinst beside it
+POSTINST = $(ROOT).postinst
+stage: build
+	@rm -rf $(ROOT)
 	install -Dm755 $(ARTIFACT) $(ROOT)/usr/bin/dictate-indicator
 	install -Dm644 data/dictate-indicator.service \
 		$(ROOT)/usr/lib/systemd/user/dictate-indicator.service
@@ -53,8 +55,11 @@ deb: build
 		$(ROOT)/usr/share/man/man1/dictate-indicator.1
 	install -Dm644 packaging/copyright $(ROOT)/usr/share/doc/dictate-indicator/copyright
 	install -Dm644 packaging/lintian-overrides $(ROOT)/usr/share/lintian/overrides/dictate-indicator
-	@mkdir -p $(ROOT)/DEBIAN
-	sed -e 's|@UNITS@|dictate-indicator.service|' -e 's|@ONLY_WITH@||' $(TOOLS)/postinst-restart > $(ROOT)/DEBIAN/postinst
+	sed -e 's|@UNITS@|dictate-indicator.service|' -e 's|@ONLY_WITH@||' $(TOOLS)/postinst-restart > $(POSTINST)
+
+deb: stage
+	@rm -f dist/dictate-indicator_*.deb
+	install -Dm755 $(POSTINST) $(ROOT)/DEBIAN/postinst
 	VERSION=$(VERSION) $(TOOLS)/deb-build $(ROOT) packaging/control $(DEB)
 
 ## deb-check  lintian, install, reinstall and remove in clean containers

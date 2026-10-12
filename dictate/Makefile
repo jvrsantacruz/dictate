@@ -15,7 +15,7 @@ DEB       = dist/dictate_$(VERSION)_all.deb
 ROOT      = build/deb
 
 .DEFAULT_GOAL := help
-.PHONY: help build deb deb-check lint test integration smoke run clean
+.PHONY: help build stage deb deb-check lint test integration smoke run clean
 
 ## help         this list
 help:
@@ -45,8 +45,12 @@ build:
 ## deb          the apt package, $(DEB). Same source and same build tools
 ##              (dpkg-deb, xz, gzip, python), same bytes; the version moves
 ##              with every change
-deb: build
-	@rm -rf $(ROOT) dist/dictate_*.deb
+## stage        the installed files under $(ROOT), and the postinst beside it. The
+##              .deb packs them; the source package's debian/rules stages into
+##              its own tree, so both install the same files
+POSTINST = $(ROOT).postinst
+stage: build
+	@rm -rf $(ROOT)
 	install -Dm755 $(ARTIFACT) $(ROOT)/usr/bin/dictate
 	install -Dm755 data/dictate-status $(ROOT)/usr/bin/dictate-status
 	install -Dm755 data/dictate.tmux $(ROOT)/usr/share/dictate/dictate.tmux
@@ -56,8 +60,11 @@ deb: build
 	install -Dm644 packaging/dictate-status.1 $(ROOT)/usr/share/man/man1/dictate-status.1
 	install -Dm644 packaging/copyright $(ROOT)/usr/share/doc/dictate/copyright
 	install -Dm644 packaging/lintian-overrides $(ROOT)/usr/share/lintian/overrides/dictate
-	@mkdir -p $(ROOT)/DEBIAN
-	sed -e 's|@UNITS@|org.freedesktop.IBus.session.GNOME.service|' -e 's|@ONLY_WITH@|/usr/bin/python3 /usr/bin/dictate engine|' $(TOOLS)/postinst-restart > $(ROOT)/DEBIAN/postinst
+	sed -e 's|@UNITS@|org.freedesktop.IBus.session.GNOME.service|' -e 's|@ONLY_WITH@|/usr/bin/python3 /usr/bin/dictate engine|' $(TOOLS)/postinst-restart > $(POSTINST)
+
+deb: stage
+	@rm -f dist/dictate_*.deb
+	install -Dm755 $(POSTINST) $(ROOT)/DEBIAN/postinst
 	VERSION=$(VERSION) $(TOOLS)/deb-build $(ROOT) packaging/control $(DEB)
 
 ## deb-check    lintian, then install, reinstall and remove the package in a

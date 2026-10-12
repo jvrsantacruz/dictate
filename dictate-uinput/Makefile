@@ -10,18 +10,22 @@ DEB      = dist/dictate-uinput_$(VERSION)_all.deb
 ROOT     = build/deb
 
 .DEFAULT_GOAL := help
-.PHONY: help deb deb-check clean
+.PHONY: help stage deb deb-check clean
 
 ## help       this list
 help:
 	@sed -n 's/^## //p' $(firstword $(MAKEFILE_LIST))
 
 ## deb        the apt package, $(DEB)
-deb:
-	@rm -rf $(ROOT) dist/dictate-uinput_*.deb
+## stage        the installed files under $(ROOT); the scripts are packaging/'s
+stage:
+	@rm -rf $(ROOT)
 	install -Dm644 data/72-dictate-uinput.rules $(ROOT)/usr/lib/udev/rules.d/72-dictate-uinput.rules
 	install -Dm644 packaging/copyright $(ROOT)/usr/share/doc/dictate-uinput/copyright
 	install -Dm644 packaging/lintian-overrides $(ROOT)/usr/share/lintian/overrides/dictate-uinput
+
+deb: stage
+	@rm -f dist/dictate-uinput_*.deb
 	install -Dm755 packaging/postinst $(ROOT)/DEBIAN/postinst
 	install -Dm755 packaging/postrm $(ROOT)/DEBIAN/postrm
 	VERSION=$(VERSION) $(TOOLS)/deb-build $(ROOT) packaging/control $(DEB)

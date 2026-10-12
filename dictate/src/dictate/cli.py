@@ -2,6 +2,7 @@
 
 dictate [LANG]          toggle a recording in LANG
 dictate cancel          stop and discard a recording
+dictate retry           transcribe the recording a failure kept, to the clipboard
 dictate status          print recording or idle
 dictate log [N]         print the last N dictated texts, 20 by default
 dictate stream LANG     the streaming worker; the first press starts it
@@ -22,7 +23,7 @@ from dictate import config, desktop, recorder, state, stream, textlog
 from dictate.dictation import Dictation
 from dictate.feedback import FAILURE, Feedback
 
-USAGE = "usage: dictate [{langs}|status|cancel|log [N]]"
+USAGE = "usage: dictate [{langs}|status|cancel|retry|log [N]]"
 
 
 def _desktop(cfg: config.Config) -> desktop.Desktop | None:
@@ -110,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
     if command in ("log", "stream"):
         return _unlocked(command, args[1:], cfg, paths)
     lang = command or cfg.default_lang
-    if command != "cancel" and lang not in cfg.languages:
+    if command not in ("cancel", "retry") and lang not in cfg.languages:
         # A typo in the shortcut would otherwise reach whisper mid-transcription.
         print(USAGE.format(langs="|".join(cfg.languages)), file=sys.stderr)
         return 2
@@ -123,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
         run = Dictation(
             cfg, paths, Feedback(cfg.notify, sound=cfg.sound), lambda: _desktop(cfg)
         )
-        return run.cancel() if command == "cancel" else run.toggle(lang)
+        actions = {"cancel": run.cancel, "retry": run.retry}
+        return actions.get(command or "", lambda: run.toggle(lang))()
     finally:
         os.close(held)

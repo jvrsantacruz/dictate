@@ -190,7 +190,6 @@ class Worker:
         self._desktop = desktop
         self._shown: Desktop | None = None
         self._token = state.read_press(p)
-        self._secret = p.secret.exists()
         self._pid = os.getpid()
         self._deadline = time.monotonic() + cfg.max_secs + CAP_MARGIN
         self.cutter = Cutter()
@@ -219,7 +218,7 @@ class Worker:
 
     def _show(self) -> None:
         """The text so far, as preedit, with the `ime` method only."""
-        if self._cfg.method != "ime" or self._token is None or self._secret:
+        if self._cfg.method != "ime" or self._token is None:
             return
         with contextlib.suppress(Exception):
             if self._shown is None:

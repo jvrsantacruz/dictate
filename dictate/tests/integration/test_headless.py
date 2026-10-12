@@ -249,6 +249,36 @@ class Gtk3Hosted(Case):
         self.assertIn("transcribed by the fallback", self.failures())
 
 
+class Gtk3Refusals(Case):
+    """What dictate refuses, and what it keeps when everything fails."""
+
+    def test_a_password_field_is_never_recorded(self) -> None:
+        self.win.focus("password")
+        result = run.press("en", DICTATE_METHOD="ime")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("password or PIN", self.failures())
+        self.assertEqual(run.press("status").stdout.strip(), "idle")
+        self.assertEqual(clipboard_get(ENV), "keep me")
+
+    def test_a_recording_no_transcriber_took_is_kept_and_retried(self) -> None:
+        dead = {
+            "DICTATE_BACKEND": "openai",
+            "DICTATE_URL": "http://127.0.0.1:9/v1",
+            "DICTATE_KEY_CMD": "echo test-key",
+            "DICTATE_FALLBACK_URL": "http://127.0.0.1:9",
+            "DICTATE_STREAM": "false",
+        }
+        result = run.dictate("ime", **dead)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("dictate retry", self.failures())
+        kept = list((ROOT / "state" / "dictate").glob("failed.*.wav"))
+        self.assertEqual(len(kept), 1)
+        retried = run.press("retry")
+        self.assertEqual(retried.returncode, 0, retried.stderr)
+        self.assertEqual(clipboard_get(ENV), EXPECTED)
+        self.assertEqual(list((ROOT / "state" / "dictate").glob("failed.*.wav")), [])
+
+
 class Gtk3ImeWhole(Case):
     """Streaming off: the whole capture is sent at the second press, as before."""
 

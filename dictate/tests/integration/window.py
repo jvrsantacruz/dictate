@@ -4,7 +4,7 @@
 
 Prints `ready` once it holds focus, then answers one line per command:
 
-    focus 1|2|button    give focus to that widget        -> ok
+    focus 1|2|button|password  give focus to that widget  -> ok
     texts               the text of both inputs, as JSON -> ["...", "..."]
     clear               empty both inputs                -> ok
 """
@@ -22,7 +22,9 @@ from gi.repository import GLib, Gtk  # noqa: E402
 window = Gtk.Window(title=f"dictate-test-gtk{VERSION}")
 box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 first, second, button = Gtk.Entry(), Gtk.Entry(), Gtk.Button(label="no text here")
-for widget in (first, second, button):
+# A password entry: GTK tells the input method its purpose is password.
+password = Gtk.Entry(input_purpose=Gtk.InputPurpose.PASSWORD, visibility=False)
+for widget in (first, second, button, password):
     if VERSION == "3":
         box.add(widget)
     else:
@@ -34,7 +36,7 @@ else:
     window.set_child(box)
 window.present()
 loop = GLib.MainLoop()
-widgets = {"1": first, "2": second, "button": button}
+widgets = {"1": first, "2": second, "button": button, "password": password}
 announced = False
 
 

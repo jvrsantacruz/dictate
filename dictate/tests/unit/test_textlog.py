@@ -54,3 +54,25 @@ def test_tail_gives_the_last_entries(tmp_path: Path) -> None:
 
 def test_no_log_has_no_tail(tmp_path: Path) -> None:
     assert_that(textlog.tail(_env(tmp_path), 5), is_(equal_to([])))
+
+
+def test_a_failed_capture_is_kept_for_a_retry(tmp_path: Path) -> None:
+    env = _env(tmp_path)
+    wav = tmp_path / "audio.wav"
+    wav.write_bytes(b"RIFF voice")
+    kept = textlog.keep_capture(env, wav, "es")
+    assert kept is not None
+    assert_that(kept.read_bytes(), is_(equal_to(b"RIFF voice")))
+    assert_that(kept.stat().st_mode & 0o777, is_(equal_to(0o600)))
+    assert_that(textlog.kept_capture(env), is_(equal_to((kept, "es"))))
+
+
+def test_a_new_failure_replaces_the_kept_capture(tmp_path: Path) -> None:
+    env = _env(tmp_path)
+    wav = tmp_path / "audio.wav"
+    wav.write_bytes(b"one")
+    textlog.keep_capture(env, wav, "es")
+    wav.write_bytes(b"two")
+    textlog.keep_capture(env, wav, "en")
+    found = sorted(textlog.path(env).parent.glob("failed.*.wav"))
+    assert_that([f.name for f in found], is_(equal_to(["failed.en.wav"])))

@@ -48,11 +48,6 @@ class Paths:
         return self.root / "press"
 
     @property
-    def secret(self) -> Path:
-        """Present when the input at the press holds a password or a PIN."""
-        return self.root / "secret"
-
-    @property
     def stream_pid(self) -> Path:
         """The streaming worker, so the second press can finish it."""
         return self.root / "stream.pid"

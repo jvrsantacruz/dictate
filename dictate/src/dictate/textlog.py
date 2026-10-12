@@ -92,6 +92,38 @@ def prune(cfg: Config, environ: Mapping[str, str]) -> None:
         tmp.replace(target)
 
 
+def capture_path(environ: Mapping[str, str], lang: str) -> Path:
+    """Where a recording no transcriber took waits for `dictate retry`."""
+    return path(environ).with_name(f"failed.{lang}.wav")
+
+
+def kept_capture(environ: Mapping[str, str]) -> tuple[Path, str] | None:
+    """The kept recording and its language, or None."""
+    for found in sorted(path(environ).parent.glob("failed.*.wav")):
+        return found, found.name.split(".")[1]
+    return None
+
+
+def keep_capture(environ: Mapping[str, str], wav: Path, lang: str) -> Path | None:
+    """Move a recording no transcriber took out of the runtime directory.
+
+    One at a time, the user's alone: the next failure replaces it, and a retry
+    that transcribes it deletes it. None when it cannot be kept.
+    """
+    target = capture_path(environ, lang)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        for old in target.parent.glob("failed.*.wav"):
+            old.unlink(missing_ok=True)
+        data = wav.read_bytes()
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+    except OSError:
+        return None
+    return target
+
+
 def tail(environ: Mapping[str, str], count: int) -> list[str]:
     """The last `count` entries, oldest first; none when there is no log."""
     try:

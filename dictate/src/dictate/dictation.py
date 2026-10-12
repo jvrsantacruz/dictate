@@ -53,8 +53,7 @@ class Dictation:
         return self._cfg.stream
 
     def _log(self, outcome: str, lang: str, text: str) -> None:
-        if not self._p.secret.exists():
-            textlog.append(self._cfg, self._environ, outcome, lang, text)
+        textlog.append(self._cfg, self._environ, outcome, lang, text)
 
     def _fell_back(self, reason: str) -> None:
         """The backend failed and the fallback server had the text: said once, with why.
@@ -68,7 +67,6 @@ class Dictation:
         """Every file that holds what was said, or where it was going."""
         self._p.wav.unlink(missing_ok=True)
         stream.cleanup(self._p)
-        self._p.secret.unlink(missing_ok=True)
 
     def _unshow(self, press: str | None) -> None:
         """Take streamed text off the input, after a cancel or a failure."""
@@ -125,6 +123,43 @@ class Dictation:
             and wav.stat().st_size > 0
         )
 
+    def retry(self) -> int:
+        """Transcribe the recording a failure kept; the text goes to the clipboard.
+
+        The input it was meant for is long gone, so the clipboard is the place.
+        The recording is deleted once it has text.
+        """
+        try:
+            kept = textlog.kept_capture(self._environ)
+            if kept is None:
+                msg = "no kept recording to retry"
+                raise Failure(msg)  # noqa: TRY301 - reported like any other failure
+            wav, lang = kept
+            self._publish(state.TRANSCRIBING, lang)
+            try:
+                audio = stream.trimmed(wav.read_bytes())
+                text = transcribe_audio(
+                    self._cfg, lang, audio, fell_back=self._fell_back
+                )
+            except (TranscribeError, OSError) as err:
+                msg = f"{err}; the recording is still kept"
+                raise Failure(msg) from err
+            if not text:
+                wav.unlink(missing_ok=True)
+                msg = "empty transcript; the recording held no speech"
+                raise Failure(msg)  # noqa: TRY301 - reported like any other failure
+            self._need_desktop().clipboard_write(text)
+            textlog.append(self._cfg, self._environ, textlog.CLIPBOARD, lang, text)
+            wav.unlink(missing_ok=True)
+        except Failure as err:
+            return self._fail(err)
+        except Exception as err:  # noqa: BLE001 - any error must leave the state idle
+            return self._fail(Failure(f"unexpected error: {err!r}"))
+        self._publish(None)
+        self._fb.notify(FAILURE, f"dictate: retried; on the clipboard: {text[:60]}")
+        print(text)
+        return 0
+
     def cancel(self) -> int:
         """Stop and discard a recording, including one the cap already ended."""
         try:
@@ -155,14 +190,17 @@ class Dictation:
         desktop = self._need_desktop()
         # Taken before anything else happens: this is the input the text is for.
         now = desktop.focus() if self._cfg.method != "clipboard" else None
+        if now is not None and now.secret:
+            # A password said aloud would be sent to the transcriber, logged, and
+            # left on the clipboard when the field refuses it: never recorded.
+            msg = "a password or PIN field has focus: dictation does not record into it"
+            raise Failure(msg)
         state.write_press(self._p, now.token if now else None)
         if now is not None and not now.active:
             # Said now, while switching still saves this dictation; it records
             # anyway, and the text goes to the clipboard if nothing changes.
             self._fb.notify(FAILURE, f"dictate: {delivery.NOT_SELECTED}", 4000)
         self._forget()
-        if now is not None and now.secret:
-            self._p.secret.touch()
         self._fb.cue(START_CUE, wait=True)
         pid = recorder.start(self._p, self._cfg.max_secs)
         try:
@@ -201,7 +239,15 @@ class Dictation:
                 )
             except (TranscribeError, OSError) as err:
                 if not shown:
-                    raise Failure(str(err)) from err
+                    # The voice is the only copy of what was said: kept for a
+                    # retry, never deleted with the rest.
+                    kept = textlog.keep_capture(self._environ, self._p.wav, lang)
+                    msg = (
+                        f"{err}; the recording is kept, `dictate retry` sends it again"
+                    )
+                    if kept is None:
+                        msg = str(err)
+                    raise Failure(msg) from err
                 text = shown
             if not text:
                 msg = "empty transcript"

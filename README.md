@@ -82,8 +82,8 @@ An upgrade restarts what runs for every user: the input method, the tray icon an
 `/etc/dictate/config` leaves the new version for the next login instead.
 
 The log is yours alone (mode 0600). One line per dictation with its final text: time, language, outcome and text, where the
-outcome is `delivered`, or `clipboard` when focus moved. Nothing
-typed into a password or PIN field is logged or shown.
+outcome is `delivered`, or `clipboard` when focus moved. Dictation never records
+while a password or PIN field has focus, so nothing from one is sent, logged or shown.
 
 `paste` and `type` press keys through [ydotool](https://github.com/ReimuNotMoe/ydotool) 1.0 or
 later, which needs write access to `/dev/uinput`. Installing `dictate-uinput` grants it to the
@@ -137,6 +137,11 @@ your `status-interval`.
 ## Use
 
 Press your language's shortcut, speak, press it again. The tray icon is red while recording and amber while transcribing. With the `ime` method the text shows in the field as you speak, underlined until you stop; typing a key or moving focus takes it off. `dictate cancel` stops without transcribing. `dictate log` prints the last 20 texts, `dictate log 50` the last 50.
+
+If no transcriber can be reached, the recording is not lost: it is kept in
+`~/.local/state/dictate/`, readable only by you, and `dictate retry` transcribes it later and puts
+the text on the clipboard. Only the last failed recording is kept, and a successful retry deletes
+it.
 
 ## Build from source
 

@@ -3,7 +3,7 @@
 dictate \- dictation into the focused input on GNOME on Wayland
 .SH SYNOPSIS
 .B dictate
-.RI [ LANG | status | cancel ]
+.RI [ LANG | status | cancel | retry ]
 .br
 .B dictate log
 .RI [ N ]
@@ -40,6 +40,11 @@ environment wins over both.
 .I $XDG_RUNTIME_DIR/dictate/state
 The current phase, read by the tray icon and
 .BR dictate-status (1).
+.TP
+.I ~/.local/state/dictate/failed.LANG.wav
+The last recording no transcriber could take, readable by the user alone.
+.B dictate retry
+transcribes it, puts the text on the clipboard and deletes it.
 .TP
 .I ~/.local/state/dictate/log
 Every dictated text, when DICTATE_LOG="true": time, language, outcome and

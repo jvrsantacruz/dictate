@@ -105,7 +105,8 @@ footer { margin-top: 3rem; color: var(--muted); font-size: .82rem; text-align: c
   <li><strong>One shortcut per language.</strong> <kbd>Super</kbd>+<kbd>I</kbd> for English and <kbd>Super</kbd>+<kbd>E</kbd> for Spanish by default; add any language whisper knows.</li>
   <li><strong>Four ways in.</strong> The input method by default, or a paste, typed keys, or the clipboard alone.</li>
   <li><strong>Status everywhere.</strong> A tray icon that blinks while recording, a tmux segment, and notifications when something goes wrong.</li>
-  <li><strong>Never in a password field.</strong> Nothing is shown in, typed into or logged from a password or PIN field.</li>
+  <li><strong>Never in a password field.</strong> Dictation does not record while a password or PIN field has focus, so nothing from one is sent, logged or left on the clipboard.</li>
+  <li><strong>No recording lost.</strong> If no transcriber can be reached, the recording is kept, readable only by you, until <code>dictate retry</code> transcribes it.</li>
 </ul>
 <p class="shot"><img src="tray.png" width="330" height="32" alt="The GNOME top bar while recording: a red dot, EN and 0:12"></p>
 <p>Ubuntu 24.04 or later, GNOME on Wayland.</p>
@@ -141,7 +142,7 @@ footer { margin-top: 3rem; color: var(--muted); font-size: .82rem; text-align: c
 </table></div>
 <p>Settings are read from three places, each over the one before: <code>/etc/dictate/config</code> for every user of the machine, <code>~/.config/dictate/config</code> for yours, and <code>DICTATE_*</code> variables in the environment for one run, such as <code>DICTATE_METHOD=type dictate en</code>. Both files are <code>KEY="value"</code> lines.</p>
 <p>Hosted, with the local server as fallback: <code>dictate setup --backend openai --url https://api.deepinfra.com/v1/openai --model openai/whisper-large-v3-turbo --key-cmd "head -1 ~/.config/dictate/deepinfra.key" --fallback-url http://127.0.0.1:8081</code>. Your voice is then sent to that service: choose one whose data policy you accept.</p>
-<p><code>dictate log</code> prints the last 20 dictated texts, and <code>dictate cancel</code> stops a recording without transcribing it. Everything else: <a href="https://github.com/jvrsantacruz/dictate#configure">the README</a>.</p>
+<p><code>dictate log</code> prints the last 20 dictated texts, <code>dictate cancel</code> stops a recording without transcribing it, and <code>dictate retry</code> transcribes a recording a failure kept. Everything else: <a href="https://github.com/jvrsantacruz/dictate#configure">the README</a>.</p>
 
 <footer>dictate is free software under the <a href="https://github.com/jvrsantacruz/dictate/blob/main/LICENSE">GPL-3.0-or-later</a>.</footer>
 </main>

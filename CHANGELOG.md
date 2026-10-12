@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+- A recording no transcriber could take is kept instead of deleted: `dictate retry` transcribes
+  it later and puts the text on the clipboard. Only the last one is kept, readable by you alone.
+- Dictation does not record while a password or PIN field has focus. Before, the text a password
+  field refused could be left on the clipboard.
+
 ## 0.3.0
 
 - A hosted transcriber, with the local one as fallback: `DICTATE_BACKEND="openai"` sends to any

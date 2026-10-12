@@ -6,7 +6,7 @@ Four packages and their build scripts:
 dictate/            the program, its IBus engine and `dictate setup`
 dictate-indicator/  the tray icon
 dictate-uinput/     the udev rule that grants /dev/uinput, alone
-dictate-whisper/    whisper.cpp's server and the base model, as a user unit; 26.04 and later
+dictate-whisper/    whisper.cpp's server, the base and VAD models, as a user unit; 26.04 and later
 tools/              deb-version, deb-build, deb-check, apt-repo, apt-sources,
                     tray-screenshot
 ```
@@ -23,6 +23,8 @@ from apt, so nothing else is needed at run time.
 ```text
 cli.py          wiring only
   dictation.py  one press: start, or stop, transcribe and deliver
+  stream.py     the worker that transcribes at each pause while recording
+  textlog.py    the transcript log, when it is on
   delivery.py   the four methods and the fallback, against the port
   desktop.py    the port, and the choice of its adapter
   gnome/        the one adapter: wl-clipboard, ydotool, the IBus engine, setup

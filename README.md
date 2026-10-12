@@ -14,6 +14,8 @@ Speak into any text field on GNOME.
 
 - **Local.** Speech is transcribed on your machine by [whisper.cpp](https://github.com/ggml-org/whisper.cpp).
 - **Into the right field.** An IBus input method inserts the text into the input that had focus when you started. When nothing is in focus the text is saved in the clipboard.
+- **Text while you speak.** The recording is transcribed piece by piece at each pause, and each piece shows in the field, underlined, until you stop. The text is ready a moment after the second press, however long you spoke.
+- **Nothing lost.** An optional log keeps every dictated text on your machine, readable with `dictate log`.
 - GNOME tray icon and status.
 
 <p align="center"><img src="docs/tray.png" width="330" alt="The GNOME top bar while recording: a red dot, EN and 0:12"></p>
@@ -30,8 +32,8 @@ sudo curl -fsSLo /etc/apt/sources.list.d/dictate.sources https://jvrsantacruz.gi
 ```
 
 `dictate-whisper` runs [whisper.cpp](https://github.com/ggml-org/whisper.cpp)'s server on
-`127.0.0.1:8081` with the multilingual base model, as a user service that `dictate setup`
-enables. It is optional: leave it out on Ubuntu 24.04, which has no whisper.cpp package, or to
+`127.0.0.1:8081` with the multilingual base model and a voice activity model, as a user service
+that `dictate setup` enables. It is optional: leave it out on Ubuntu 24.04, which has no whisper.cpp package, or to
 use a transcriber of your own, any whisper server or OpenAI-compatible endpoint, see
 [Configure](#configure):
 
@@ -64,6 +66,9 @@ It adds the input method, binds <kbd>Super</kbd>+<kbd>I</kbd> to English and <kb
 | `--url` | `DICTATE_URL` | the server; `https` unless it is on this machine | `http://127.0.0.1:8081` |
 | `--key-cmd` | `DICTATE_KEY_CMD` | a command printing the API key on its first line, for `openai` | none |
 | `--max-secs` | `DICTATE_MAX_SECS` | the longest recording | `120` |
+| `--stream` | `DICTATE_STREAM` | transcribe at each pause while recording, `true` or `false`; `local` backend only | `true` |
+| `--log` | `DICTATE_LOG` | keep every dictated text in `~/.local/state/dictate/log`, `true` or `false` | `false` |
+| `--log-days` | `DICTATE_LOG_DAYS` | days the log keeps a text | `30` |
 
 Settings are read from three places, each over the one before: `/etc/dictate/config`, which an
 admin may write for every user and the package never ships; `~/.config/dictate/config`, which
@@ -73,6 +78,10 @@ admin may write for every user and the package never ships; `~/.config/dictate/c
 An upgrade restarts what runs for every user: the input method, the tray icon and the
 `dictate-whisper` server, never one that was stopped. `DICTATE_RESTART="false"` in
 `/etc/dictate/config` leaves the new version for the next login instead.
+
+The log is yours alone (mode 0600). One line per dictation with its final text: time, language, outcome and text, where the
+outcome is `delivered`, or `clipboard` when focus moved. Nothing
+typed into a password or PIN field is logged or shown.
 
 `paste` and `type` press keys through [ydotool](https://github.com/ReimuNotMoe/ydotool) 1.0 or
 later, which needs write access to `/dev/uinput`. Installing `dictate-uinput` grants it to the
@@ -104,13 +113,13 @@ your `status-interval`.
 
 ## Use
 
-Press your language's shortcut, speak, press it again. The tray icon is red while recording and amber while transcribing. `dictate cancel` stops without transcribing.
+Press your language's shortcut, speak, press it again. The tray icon is red while recording and amber while transcribing. With the `ime` method the text shows in the field as you speak, underlined until you stop; typing a key or moving focus takes it off. `dictate cancel` stops without transcribing. `dictate log` prints the last 20 texts, `dictate log 50` the last 50.
 
 ## Build from source
 
 ```sh
 make lint test   # linters and unit tests
-make deb         # the three packages, into each app's dist/
+make deb         # the four packages, into each app's dist/
 make deb-check   # lintian, then install, upgrade and purge in Ubuntu containers
 ```
 

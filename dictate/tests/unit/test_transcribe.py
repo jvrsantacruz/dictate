@@ -1,5 +1,6 @@
 """What goes to the backend and what comes back."""
 
+import json
 import time
 from pathlib import Path
 
@@ -124,3 +125,76 @@ def test_a_redirect_is_refused() -> None:
     with pytest.raises(transcribe.TranscribeError) as err:
         transcribe.transcribe(cfg, "en", wav)
     assert_that(str(err.value), contains_string("redirect"))
+
+
+def test_a_base_with_a_path_gets_the_route_appended() -> None:
+    url = transcribe.endpoint("https://api.deepinfra.com/v1/openai")
+    assert_that(
+        url, is_(equal_to("https://api.deepinfra.com/v1/openai/audio/transcriptions"))
+    )
+
+
+def test_a_bare_host_gets_v1() -> None:
+    url = transcribe.endpoint("https://api.openai.com/")
+    assert_that(url, is_(equal_to("https://api.openai.com/v1/audio/transcriptions")))
+
+
+def test_the_openai_backend_sends_the_prompt() -> None:
+    cfg = config.Config(backend="openai", url="https://x.example", key_cmd="echo k")
+    _, _, body = transcribe.request(cfg, "es", b"RIFF", prompt="Hola.")
+    assert_that(body.decode(), contains_string('name="prompt"\r\n\r\nHola.\r\n'))
+
+
+def test_a_hosted_backend_waits_less_than_a_local_one() -> None:
+    hosted = transcribe._timeout(config.Config(backend="openai"), b"\0" * 32000 * 10)  # noqa: SLF001
+    assert_that(hosted, is_(equal_to(7.5)))
+    local = transcribe._timeout(config.Config(), b"\0" * 32000 * 10)  # noqa: SLF001
+    assert_that(local, is_(equal_to(transcribe.TIMEOUT)))
+
+
+def _server(status: int, text: str = "") -> str:
+    import http.server  # noqa: PLC0415
+    import threading  # noqa: PLC0415
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            self.rfile.read(int(self.headers["Content-Length"]))
+            body = json.dumps({"text": text}).encode()
+            self.send_response(status)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args: object) -> None:
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.handle_request, daemon=True).start()
+    return f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def test_a_failing_backend_falls_back_and_says_why() -> None:
+    broken = _server(503)
+    local = _server(200, "Hola.")
+    cfg = config.Config(
+        backend="openai", url=broken, key_cmd="echo k", fallback_url=local
+    )
+    told: list[str] = []
+    text = transcribe.transcribe_audio(cfg, "es", b"RIFF", fell_back=told.append)
+    assert_that(text, is_(equal_to("Hola.")))
+    assert_that(told[0], contains_string("503"))
+
+
+def test_no_fallback_set_raises() -> None:
+    cfg = config.Config(backend="openai", url=_server(503), key_cmd="echo k")
+    with pytest.raises(transcribe.TranscribeError):
+        transcribe.transcribe_audio(cfg, "es", b"RIFF")
+
+
+def test_a_failing_fallback_is_not_announced() -> None:
+    cfg = config.Config(
+        backend="openai", url=_server(503), key_cmd="echo k", fallback_url=_server(503)
+    )
+    told: list[str] = []
+    with pytest.raises(transcribe.TranscribeError):
+        transcribe.transcribe_audio(cfg, "es", b"RIFF", fell_back=told.append)
+    assert_that(told, is_(equal_to([])))

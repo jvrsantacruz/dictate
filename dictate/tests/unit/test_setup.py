@@ -177,3 +177,13 @@ def test_another_transcriber_leaves_dictate_whisper_off() -> None:
         assert_that(
             setup.wanted_units(cfg), is_(equal_to(["dictate-indicator.service"]))
         )
+
+
+def test_a_hosted_backend_with_the_local_fallback_keeps_dictate_whisper() -> None:
+    cfg = config.Config(
+        backend="openai", url="https://x.example", fallback_url=config.Config.url
+    )
+    assert_that(
+        setup.wanted_units(cfg),
+        is_(equal_to(["dictate-indicator.service", "dictate-whisper.service"])),
+    )

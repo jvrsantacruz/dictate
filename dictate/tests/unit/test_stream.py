@@ -36,7 +36,9 @@ class _Sent:
     def __init__(self) -> None:
         self.pieces: list[tuple[float, str]] = []
 
-    def __call__(self, _cfg: object, _lang: str, audio: bytes, prompt: str = "") -> str:
+    def __call__(
+        self, _cfg: object, _lang: str, audio: bytes, prompt: str = "", *_rest: object
+    ) -> str:
         with wave.open(io.BytesIO(audio)) as w:
             seconds = w.getnframes() / w.getframerate()
         self.pieces.append((round(seconds, 1), prompt))
@@ -210,3 +212,41 @@ def test_cleanup_deletes_the_words(tmp_path: Path) -> None:
     p.stream_text.write_text("Hola.\n")
     stream.cleanup(p)
     assert_that(p.stream_text.exists(), is_(False))
+
+
+def test_silence_around_speech_is_trimmed_to_300_ms() -> None:
+    wav = _wav(_frames(3, SILENT) + _frames(1, LOUD) + _frames(3, SILENT))
+    with wave.open(io.BytesIO(stream.trimmed(wav))) as w:
+        seconds = w.getnframes() / w.getframerate()
+    assert_that(round(seconds, 1), is_(equal_to(1.6)))
+
+
+def test_a_capture_with_no_speech_is_left_as_it_is() -> None:
+    wav = _wav(_frames(2, SILENT))
+    assert_that(stream.trimmed(wav), is_(equal_to(wav)))
+
+
+def test_a_piece_that_repeats_the_one_before_is_dropped(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    worker, _ = _worker(tmp_path, monkeypatch)
+    monkeypatch.setattr(stream, "transcribe_audio", lambda *_a, **_k: "Rodela rota.")  # type: ignore[attr-defined]
+    worker.take(_frames(3, LOUD) + _frames(0.5, SILENT) + _frames(3, LOUD))
+    worker.finish()
+    assert_that(worker.texts, is_(equal_to(["Rodela rota."])))
+
+
+def test_half_a_sample_at_the_end_is_ignored() -> None:
+    wav = _wav(_frames(1, LOUD)) + b"\x01"
+    with wave.open(io.BytesIO(stream.trimmed(wav))) as w:
+        assert_that(w.getnframes() > 0, is_(True))
+
+
+def test_after_a_failure_the_worker_sends_to_the_fallback(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    worker, _ = _worker(
+        tmp_path, monkeypatch, backend="openai", fallback_url="http://127.0.0.1:1"
+    )
+    worker._fell_back("down")  # noqa: SLF001
+    assert_that(worker._cfg.backend, is_(equal_to("local")))  # noqa: SLF001

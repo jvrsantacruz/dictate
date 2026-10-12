@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+import functools
 import http.client
 import json
 import re
@@ -11,13 +13,20 @@ import unicodedata
 import urllib.request
 import uuid
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from dictate.config import Config
 
 TIMEOUT = 300
+# A hosted backend answers in a few seconds; one that does not is down or
+# queued, and the fallback is faster. Seconds, plus a quarter of the audio's
+# length: whisper-large-v3-turbo answered 15 s of speech in under 4 s.
+HOSTED_TIMEOUT = 5
+BYTES_PER_SEC = 32000  # 16 kHz, 16 bit, mono
 KEY_TIMEOUT = 30
 # Whisper labels non-speech as [BLANK_AUDIO], (wind blowing) and similar. A
 # transcript that is nothing but such tags means nothing was said.
@@ -66,6 +75,12 @@ def clean(text: str) -> str:
 
 
 def _key(cfg: Config) -> str:
+    """The API key, read once per process: a streamed recording sends many pieces."""
+    return _key_from(cfg.key_cmd)
+
+
+@functools.cache
+def _key_from(key_cmd: str) -> str:
     """The API key the key command prints: its first line, checked.
 
     No message here quotes what the command printed, so a key never reaches a
@@ -73,7 +88,7 @@ def _key(cfg: Config) -> str:
     """
     try:
         done = subprocess.run(
-            shlex.split(cfg.key_cmd), capture_output=True, text=True,
+            shlex.split(key_cmd), capture_output=True, text=True,
             timeout=KEY_TIMEOUT, check=False,
         )  # fmt: skip
     except (OSError, ValueError, subprocess.SubprocessError) as err:
@@ -104,7 +119,7 @@ def request(
     """The URL, headers and body for this backend.
 
     `prompt` is the text said before this audio, which keeps names and casing
-    the same across the pieces of one recording. Only the local backend gets it.
+    the same across the pieces of one recording.
     """
     if cfg.backend == "local":
         # whisper-server 1.8.x serves /inference only.
@@ -119,11 +134,26 @@ def request(
             raise TranscribeError(msg)
         key = _key(cfg)
         fields = {"model": cfg.model, "language": lang, "response_format": "json"}
+        if prompt:
+            fields["prompt"] = prompt
         body, ctype = multipart(fields, audio)
         headers = {"Content-Type": ctype, "Authorization": f"Bearer {key}"}
-        return f"{cfg.url}/v1/audio/transcriptions", headers, body
+        return endpoint(cfg.url), headers, body
     msg = f"unknown backend: {cfg.backend}"
     raise TranscribeError(msg)
+
+
+def endpoint(url: str) -> str:
+    """The transcription route of an OpenAI-compatible base URL.
+
+    A base with a path is the API's root, as OpenAI's own clients take it:
+    `https://api.openai.com/v1`, `https://api.deepinfra.com/v1/openai`. A bare
+    host gets `/v1`, as dictate always gave it.
+    """
+    base = url.rstrip("/")
+    if urlsplit(base).path:
+        return f"{base}/audio/transcriptions"
+    return f"{base}/v1/audio/transcriptions"
 
 
 def transcribe(cfg: Config, lang: str, wav: Path) -> str:
@@ -136,8 +166,40 @@ def transcribe(cfg: Config, lang: str, wav: Path) -> str:
     return transcribe_audio(cfg, lang, audio)
 
 
-def transcribe_audio(cfg: Config, lang: str, audio: bytes, prompt: str = "") -> str:
-    """Send one WAV, whole or a piece of a recording, and return the cleaned text."""
+def transcribe_audio(
+    cfg: Config,
+    lang: str,
+    audio: bytes,
+    prompt: str = "",
+    fell_back: Callable[[str], None] | None = None,
+) -> str:
+    """Send one WAV, whole or a piece of a recording, and return the cleaned text.
+
+    A backend that fails hands the audio to the fallback server, when one is
+    set; `fell_back` is told why, so the person can be.
+    """
+    try:
+        return _send(cfg, lang, audio, prompt)
+    except TranscribeError as err:
+        if not cfg.fallback_url or cfg.fallback_url == cfg.url:
+            raise
+        local = dataclasses.replace(cfg, backend="local", url=cfg.fallback_url)
+        text = _send(local, lang, audio, prompt)
+        # Told only once the fallback has the text: a notice that it was used
+        # must not come before a failure of the fallback too.
+        if fell_back is not None:
+            fell_back(str(err))
+        return text
+
+
+def _timeout(cfg: Config, audio: bytes) -> float:
+    """How long to wait: long for a local server, short for a hosted one."""
+    if cfg.backend == "local":
+        return TIMEOUT
+    return HOSTED_TIMEOUT + len(audio) / BYTES_PER_SEC / 4
+
+
+def _send(cfg: Config, lang: str, audio: bytes, prompt: str) -> str:
     try:
         url, headers, body = request(cfg, lang, audio, prompt)
     except (OSError, ValueError) as err:
@@ -146,7 +208,7 @@ def transcribe_audio(cfg: Config, lang: str, audio: bytes, prompt: str = "") -> 
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")  # noqa: S310
     opener = urllib.request.build_opener(_NoRedirect)
     try:
-        with opener.open(req, timeout=TIMEOUT) as resp:
+        with opener.open(req, timeout=_timeout(cfg, audio)) as resp:
             payload = resp.read()
     except (OSError, http.client.HTTPException, ValueError) as err:
         # The type only: a ValueError from http.client can quote the headers.

@@ -50,6 +50,7 @@ FLAGS = {
     "notify": "DICTATE_NOTIFY",
     "backend": "DICTATE_BACKEND",
     "url": "DICTATE_URL",
+    "fallback_url": "DICTATE_FALLBACK_URL",
     "model": "DICTATE_MODEL",
     "key_cmd": "DICTATE_KEY_CMD",
     "max_secs": "DICTATE_MAX_SECS",
@@ -153,13 +154,14 @@ def shortcuts(
 def wanted_units(cfg: config.Config) -> list[str]:
     """The user units this configuration uses, when they are installed.
 
-    The transcriber only for the local backend at the default address, the one
-    its unit serves: a URL elsewhere means another server does the work.
+    The transcriber when the local backend or the fallback is at the default
+    address, the one its unit serves: a URL elsewhere means another server.
     """
     units = [TRAY_UNIT]
     if cfg.method in {"paste", "type"}:
         units.append(KEY_UNIT)
-    if cfg.backend == "local" and cfg.url == config.Config.url:
+    served = {cfg.fallback_url} | ({cfg.url} if cfg.backend == "local" else set())
+    if config.Config.url in served:
         units.append(TRANSCRIBER_UNIT)
     return units
 
@@ -531,6 +533,9 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--sound", choices=("true", "false"))
     p.add_argument("--backend", choices=("local", "openai"))
     p.add_argument("--url")
+    p.add_argument(
+        "--fallback-url", dest="fallback_url", help="a whisper-server for failures"
+    )
     p.add_argument("--model")
     p.add_argument("--key-cmd", dest="key_cmd")
     p.add_argument("--max-secs", dest="max_secs", type=int)

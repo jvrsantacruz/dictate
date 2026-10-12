@@ -222,6 +222,33 @@ class Gtk3Ime(Delivered, Case):
     method = "ime"
 
 
+class Gtk3Hosted(Case):
+    """The openai backend, here the fake on loopback, and its fallback."""
+
+    def test_the_hosted_backend_delivers(self) -> None:
+        hosted = {
+            "DICTATE_BACKEND": "openai",
+            "DICTATE_URL": transcriber.url + "/v1",
+            "DICTATE_KEY_CMD": "echo test-key",
+        }
+        result = run.dictate("ime", **hosted)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.win.texts(), [EXPECTED, ""])
+
+    def test_a_dead_hosted_backend_falls_back_to_the_local_server(self) -> None:
+        dead = {
+            "DICTATE_BACKEND": "openai",
+            "DICTATE_URL": "http://127.0.0.1:9/v1",
+            "DICTATE_KEY_CMD": "echo test-key",
+            "DICTATE_FALLBACK_URL": transcriber.url,
+            "DICTATE_NOTIFY": "failures",
+        }
+        result = run.dictate("ime", **dead)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.win.texts(), [EXPECTED, ""])
+        self.assertIn("transcribed by the fallback", self.failures())
+
+
 class Gtk3ImeWhole(Case):
     """Streaming off: the whole capture is sent at the second press, as before."""
 

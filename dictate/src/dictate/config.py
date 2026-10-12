@@ -34,6 +34,9 @@ class Config:
 
     backend: str = "local"
     url: str = "http://127.0.0.1:8081"
+    # A whisper-server to send to when the backend fails: offline, a hosted
+    # service down or slow. Empty: none.
+    fallback_url: str = ""
     model: str = "whisper-1"
     key_cmd: str = ""
     method: str = "ime"
@@ -47,7 +50,7 @@ class Config:
     keys: str = "ydotool"
     # The XKB layout the engine types with, and the `type` method plans for.
     layout: str = "us+intl"
-    # Transcribe while recording, piece by piece: the local backend only.
+    # Transcribe while recording, piece by piece, to show the text as it comes.
     stream: bool = True
     # Keep every dictated text in a file of the user's, for this many days.
     log: bool = False
@@ -81,14 +84,14 @@ def default_path(environ: Mapping[str, str]) -> Path:
 LOOPBACK = ("127.0.0.1", "::1", "localhost")
 
 
-def _check_url(url: str) -> None:
+def _check_url(url: str, key: str = "DICTATE_URL") -> None:
     """Allow http or https only, and https off this machine: the audio is a voice."""
     parts = urlsplit(url)
     if parts.scheme not in {"http", "https"} or not parts.hostname:
-        msg = f"DICTATE_URL must be an http or https URL: {url}"
+        msg = f"{key} must be an http or https URL: {url}"
         raise ConfigError(msg)
     if parts.scheme == "http" and parts.hostname not in LOOPBACK:
-        msg = f"DICTATE_URL must use https off this machine: {url}"
+        msg = f"{key} must use https off this machine: {url}"
         raise ConfigError(msg)
 
 
@@ -115,6 +118,9 @@ def build(values: Mapping[str, str]) -> Config:
         raise ConfigError(msg) from err
     url = values.get("DICTATE_URL", d.url)
     _check_url(url)
+    fallback_url = values.get("DICTATE_FALLBACK_URL", d.fallback_url)
+    if fallback_url:
+        _check_url(fallback_url, "DICTATE_FALLBACK_URL")
     if max_secs <= 0:
         # timeout 0 means no limit, which is what the cap is there to prevent.
         msg = f"DICTATE_MAX_SECS must be above 0, not {max_secs}"
@@ -130,6 +136,7 @@ def build(values: Mapping[str, str]) -> Config:
     return Config(
         backend=values.get("DICTATE_BACKEND", d.backend),
         url=url,
+        fallback_url=fallback_url,
         model=values.get("DICTATE_MODEL", d.model),
         key_cmd=values.get("DICTATE_KEY_CMD", d.key_cmd),
         method=method,

@@ -124,3 +124,8 @@ def test_log_days_of_zero_are_refused() -> None:
 def test_log_days_that_are_not_a_number_are_refused() -> None:
     with pytest.raises(config.ConfigError):
         config.build({"DICTATE_LOG_DAYS": "a month"})
+
+
+def test_a_fallback_off_this_machine_must_be_https() -> None:
+    with pytest.raises(config.ConfigError):
+        config.build({"DICTATE_FALLBACK_URL": "http://example.com"})

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from dictate import delivery, feedback, recorder, state, stream, textlog
 from dictate.desktop import DesktopError
 from dictate.feedback import FAILURE, START_CUE, STATE, STOP_CUE
-from dictate.transcribe import TranscribeError, transcribe
+from dictate.transcribe import TranscribeError, transcribe_audio
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -49,12 +49,20 @@ class Dictation:
         self._environ = os.environ if environ is None else environ
 
     def _streams(self) -> bool:
-        """Pieces are sent while recording: the local backend only."""
-        return self._cfg.stream and self._cfg.backend == "local"
+        """Pieces are sent while recording, to whichever backend is set."""
+        return self._cfg.stream
 
     def _log(self, outcome: str, lang: str, text: str) -> None:
         if not self._p.secret.exists():
             textlog.append(self._cfg, self._environ, outcome, lang, text)
+
+    def _fell_back(self, reason: str) -> None:
+        """The backend failed and the fallback server had the text: said once, with why.
+
+        The reason never holds the key: the backend's answer body is not read.
+        """
+        print(f"dictate: {reason}; transcribed by the fallback", file=sys.stderr)
+        self._fb.notify(FAILURE, f"dictate: {reason}; transcribed by the fallback")
 
     def _forget(self) -> None:
         """Every file that holds what was said, or where it was going."""
@@ -187,8 +195,11 @@ class Dictation:
             shown = stream.text_so_far(self._p) if self._streams() else ""
             stream.stop(self._p)
             try:
-                text = transcribe(self._cfg, lang, self._p.wav)
-            except TranscribeError as err:
+                audio = stream.trimmed(self._p.wav.read_bytes())
+                text = transcribe_audio(
+                    self._cfg, lang, audio, fell_back=self._fell_back
+                )
+            except (TranscribeError, OSError) as err:
                 if not shown:
                     raise Failure(str(err)) from err
                 text = shown

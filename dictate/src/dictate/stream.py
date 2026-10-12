@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import array
 import contextlib
+import dataclasses
 import io
 import os
 import signal
@@ -139,6 +140,32 @@ def to_wav(pcm: bytes) -> bytes:
     return buf.getvalue()
 
 
+def trimmed(wav: bytes) -> bytes:
+    """The capture without its silence before the first and after the last word.
+
+    Whisper given silence at either end invents a closing line, "Gracias.", and
+    a hosted backend bills it. 300 ms is kept on each side; a capture with no
+    speech, or that cannot be read, is returned as it is.
+    """
+    offset = data_offset(wav[:4096])
+    if offset is None:
+        return wav
+    # A recorder stopped mid-write can leave half a sample, which no 16 bit
+    # frame holds.
+    pcm = wav[offset:]
+    pcm = pcm[: len(pcm) - len(pcm) % 2]
+    cutter = Cutter()
+    levels = [level(pcm[i : i + FRAME_BYTES]) for i in range(0, len(pcm), FRAME_BYTES)]
+    cutter.levels = levels
+    threshold = cutter.threshold()
+    loud = [i for i, value in enumerate(levels) if value >= threshold]
+    if len(loud) < SPEECH_FRAMES:
+        return wav
+    first = max(loud[0] - PAUSE_FRAMES, 0)
+    last = min(loud[-1] + PAUSE_FRAMES + 1, len(levels))
+    return to_wav(pcm[first * FRAME_BYTES : last * FRAME_BYTES])
+
+
 def prompt(texts: list[str]) -> str:
     """The text said before the next piece, trimmed to what whisper reads."""
     return " ".join(texts)[-PROMPT_CHARS:]
@@ -173,6 +200,16 @@ class Worker:
         self._first = 0  # frame index where that piece starts
         self.finishing = False
 
+    def _fell_back(self, _reason: str) -> None:
+        """The backend failed once: the rest of this recording goes to the fallback.
+
+        Each piece would otherwise wait the hosted timeout again, and the text
+        shown would fall further behind the voice.
+        """
+        self._cfg = dataclasses.replace(
+            self._cfg, backend="local", url=self._cfg.fallback_url
+        )
+
     def _mine(self) -> bool:
         """Whether the pidfile still names this worker, not a later run's."""
         try:
@@ -199,10 +236,13 @@ class Worker:
         first, self._first = self._first, last
         if not self.cutter.speech(first, last) and not (final and not self.texts):
             return
-        text = transcribe_audio(self._cfg, self._lang, to_wav(pcm), prompt(self.texts))
+        text = transcribe_audio(
+            self._cfg, self._lang, to_wav(pcm), prompt(self.texts), self._fell_back
+        )
         if not self._mine():
             raise Orphan
-        if not text:
+        if not text or (self.texts and text == self.texts[-1]):
+            # Noise sent with the text before as prompt comes back as that text.
             return
         self.texts.append(text)
         with self._p.stream_text.open("a", encoding="utf-8") as f:

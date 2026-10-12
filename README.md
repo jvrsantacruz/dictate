@@ -12,7 +12,7 @@ Speak into any text field on GNOME.
 <a href="LICENSE"><img src="https://img.shields.io/github/license/jvrsantacruz/dictate" alt="License: GPL-3.0-or-later"></a>
 </p>
 
-- **Local.** Speech is transcribed on your machine by [whisper.cpp](https://github.com/ggml-org/whisper.cpp).
+- **Local, or hosted if you choose.** Speech is transcribed on your machine by [whisper.cpp](https://github.com/ggml-org/whisper.cpp), or by an OpenAI-compatible service you configure, with the local server as fallback when it fails. See [Hosted transcription](#hosted-transcription).
 - **Into the right field.** An IBus input method inserts the text into the input that had focus when you started. When nothing is in focus the text is saved in the clipboard.
 - **Text while you speak.** The recording is transcribed piece by piece at each pause, and each piece shows in the field, underlined, until you stop. Then the whole recording is transcribed once more, so the text typed reads as one stream.
 - **Nothing lost.** An optional log keeps every dictated text on your machine, readable with `dictate log`.
@@ -63,10 +63,12 @@ It adds the input method, binds <kbd>Super</kbd>+<kbd>I</kbd> to English and <kb
 | `--notify` | `DICTATE_NOTIFY` | `all`, `failures`, `none` | `failures` |
 | `--sound` | `DICTATE_SOUND` | a cue before and after recording, `true` or `false` | `false` |
 | `--backend` | `DICTATE_BACKEND` | `local` whisper-server, or `openai` | `local` |
-| `--url` | `DICTATE_URL` | the server; `https` unless it is on this machine | `http://127.0.0.1:8081` |
+| `--url` | `DICTATE_URL` | the server; for `openai`, the API's base URL; `https` unless it is on this machine | `http://127.0.0.1:8081` |
+| `--model` | `DICTATE_MODEL` | the model, for `openai` | `whisper-1` |
 | `--key-cmd` | `DICTATE_KEY_CMD` | a command printing the API key on its first line, for `openai` | none |
+| `--fallback-url` | `DICTATE_FALLBACK_URL` | a whisper-server to use when the backend fails or is slow | none |
 | `--max-secs` | `DICTATE_MAX_SECS` | the longest recording | `120` |
-| `--stream` | `DICTATE_STREAM` | transcribe at each pause while recording, `true` or `false`; `local` backend only | `true` |
+| `--stream` | `DICTATE_STREAM` | transcribe at each pause while recording, shown as you speak; `true` or `false` | `true` |
 | `--log` | `DICTATE_LOG` | keep every dictated text in `~/.local/state/dictate/log`, `true` or `false` | `false` |
 | `--log-days` | `DICTATE_LOG_DAYS` | days the log keeps a text | `30` |
 
@@ -88,6 +90,27 @@ later, which needs write access to `/dev/uinput`. Installing `dictate-uinput` gr
 user at the seat. It is a package of its own because that access is a choice: it is a virtual
 keyboard for every program that user runs, and it outlasts a switch to another user, so it is not
 for a machine people share. `ime`, the default, needs none of it.
+
+### Hosted transcription
+
+A hosted model can be more accurate and faster than the local one. Your voice is then sent to
+that service, so choose one whose data policy you accept. For example, whisper-large-v3-turbo on
+[DeepInfra](https://deepinfra.com), with the local server as fallback:
+
+```sh
+dictate setup --backend openai --url https://api.deepinfra.com/v1/openai \
+  --model openai/whisper-large-v3-turbo --key-cmd "head -1 $HOME/.config/dictate/deepinfra.key" \
+  --fallback-url http://127.0.0.1:8081
+```
+
+`--url` is the API's base URL, as OpenAI's own clients take it: `https://api.openai.com/v1`
+works the same way. The key is never written to the config: the command prints it, once per
+dictation. A request that fails, or that waits on the network longer than 5 s plus a quarter of
+the recording's length, goes to the fallback server instead, and a notification says why.
+
+Silence before and after speech is cut before sending, so whisper does not turn it into words.
+With streaming on, each piece is sent while you speak and the whole recording again at the end,
+so the service bills about twice your speaking time; `--stream false` sends it once.
 
 ### tmux
 

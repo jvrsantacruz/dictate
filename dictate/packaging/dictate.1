@@ -22,6 +22,10 @@ transcribed at the second press.
 Run
 .B dictate setup \-\-help
 for its options.
+.PP
+Transcription is local by default. With DICTATE_BACKEND="openai" the audio is
+sent to the OpenAI-compatible service at DICTATE_URL, and DICTATE_FALLBACK_URL
+names a local whisper server for when that service fails or is slow.
 .SH FILES
 .TP
 .I /etc/dictate/config

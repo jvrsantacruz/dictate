@@ -1,0 +1,40 @@
+#!/usr/bin/make -f
+# The Launchpad source package: the three packages that need no download at
+# build time, built from the same Makefiles as the .debs. dictate-whisper
+# fetches its models, which a Launchpad builder cannot, and needs whisper.cpp,
+# which only some series have: it stays on the GitHub Pages repository.
+#
+# control, changelog and copyright are written by tools/ppa-source from each
+# app's packaging/, so one file says what a package depends on.
+
+include /usr/share/dpkg/pkg-info.mk
+
+APPS = dictate dictate-indicator dictate-uinput
+MAKE_ARGS = VERSION=$(DEB_VERSION_UPSTREAM) SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH)
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	$(MAKE) -C dictate build $(MAKE_ARGS)
+	$(MAKE) -C dictate-indicator build $(MAKE_ARGS)
+
+# The unit tests need the venv's pytest and hamcrest; CI runs them on every push.
+override_dh_auto_test:
+
+# Each app stages into its package's tree; the postinst lands beside it, as
+# debian/<package>.postinst, the name debhelper looks for.
+override_dh_auto_install:
+	for app in $(APPS); do \
+		$(MAKE) -C $$app stage ROOT=$(CURDIR)/debian/$$app $(MAKE_ARGS) || exit 1; \
+	done
+	cp dictate-uinput/packaging/postinst debian/dictate-uinput.postinst
+	cp dictate-uinput/packaging/postrm debian/dictate-uinput.postrm
+
+# Packages never start or enable a unit: `dictate setup` does, per user.
+override_dh_installsystemduser:
+override_dh_installsystemd:
+
+override_dh_auto_clean:
+	for app in $(APPS); do $(MAKE) -C $$app clean || exit 1; done
+	rm -f debian/*.postinst debian/*.postrm

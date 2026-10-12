@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# ppa-source VERSION SERIES [OUT] - the Launchpad source package of VERSION
+# for one Ubuntu SERIES, unsigned, into OUT (default dist/ppa).
+#
+# The orig tarball is the tagged tree without debian/, the same bytes for every
+# series. debian/ gets control, changelog and copyright written here: control
+# from each app's packaging/control, so a dependency is stated once.
+set -euo pipefail
+
+version=${1:?usage: ppa-source VERSION SERIES [OUT]}
+series=${2:?usage: ppa-source VERSION SERIES [OUT]}
+out=${3:-dist/ppa}
+apps=(dictate dictate-indicator dictate-uinput)
+maintainer="Javier Santacruz <javier.santacruz.lc@gmail.com>"
+
+case $series in
+  noble) number=24.04 ;;
+  resolute) number=26.04 ;;
+  *) echo "ppa-source: unknown series $series" >&2; exit 2 ;;
+esac
+# ~SERIES1 sorts below a plain -1, and the series sort in release order, so an
+# upgrade of Ubuntu upgrades dictate.
+debversion="$version-1~${series}1"
+
+top=$(git rev-parse --show-toplevel)
+cd "$top"
+tag="v$version"
+git rev-parse -q --verify "refs/tags/$tag" >/dev/null || { echo "ppa-source: no tag $tag" >&2; exit 2; }
+epoch=$(git log -1 --format=%ct "$tag")
+
+mkdir -p "$out"
+orig="$out/dictate_$version.orig.tar.gz"
+if [[ ! -f $orig ]]; then
+  git archive --format=tar --prefix="dictate-$version/" "$tag" -- . ':!debian' \
+    | gzip -9 -n > "$orig"
+fi
+tree="$out/dictate-$version-$series"
+rm -rf "$tree"
+mkdir -p "$tree"
+tar -xzf "$orig" -C "$tree" --strip-components=1
+git archive --format=tar "$tag" debian | tar -x -C "$tree"
+
+# control: a source stanza, then each binary stanza without the fields only a
+# built .deb carries.
+{
+  cat <<EOF
+Source: dictate
+Section: utils
+Priority: optional
+Maintainer: $maintainer
+Build-Depends: debhelper-compat (= 13), python3 (>= 3.12)
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/jvrsantacruz/dictate
+Vcs-Git: https://github.com/jvrsantacruz/dictate.git
+Vcs-Browser: https://github.com/jvrsantacruz/dictate
+EOF
+  for app in "${apps[@]}"; do
+    echo
+    # debhelper's own dependencies join each package's.
+    grep -vE '^(Version|Maintainer|Priority|Homepage):' "$app/packaging/control" \
+      | awk '/^Depends:/ { print $0 ", ${misc:Depends}"; seen = 1; next }
+             /^Description:/ && !seen { print "Depends: ${misc:Depends}" }
+             { print }'
+  done
+} > "$tree/debian/control"
+
+cp dictate/packaging/copyright "$tree/debian/copyright"
+
+stamp=$(date -R -u -d "@$epoch")
+cat > "$tree/debian/changelog" <<EOF
+dictate ($debversion) $series; urgency=medium
+
+  * Release $version, built for Ubuntu $number. What changed:
+    https://github.com/jvrsantacruz/dictate/blob/$tag/CHANGELOG.md
+
+ -- $maintainer  $stamp
+EOF
+
+# -sa: the orig tarball goes with every upload; Launchpad keeps one copy.
+(cd "$tree" && SOURCE_DATE_EPOCH=$epoch dpkg-buildpackage -S -sa -d -us -uc -nc >/dev/null)
+ls "$out"/dictate_"$debversion"_source.changes

@@ -8,7 +8,8 @@ dictate-indicator/  the tray icon
 dictate-uinput/     the udev rule that grants /dev/uinput, alone
 dictate-whisper/    whisper.cpp's server, the base and VAD models, as a user unit; 26.04 and later
 tools/              deb-version, deb-build, deb-check, apt-repo, apt-sources,
-                    tray-screenshot
+                    ppa-source, tray-screenshot
+debian/             the Launchpad source package: rules only, the rest is written
 ```
 
 `docs/tray.png` is made in a private headless GNOME Shell, never this desktop:
@@ -67,6 +68,22 @@ and zizmor on workflows. A push runs the unit tests and refuses a version tag th
 
 `tools/hooks/private-words` refuses words listed in `~/.config/git/private-words`, a file kept
 outside the repository; without it, nothing is checked.
+
+## Launchpad
+
+`ppa:jvrsantacruz/dictate` builds `dictate`, `dictate-indicator` and `dictate-uinput` for each
+Ubuntu series from one source package. `dictate-whisper` stays on the Pages repository: its models
+are downloaded at build time, which a Launchpad builder cannot do.
+
+```sh
+tools/ppa-source 0.2.1 noble      # dist/ppa/dictate_0.2.1-1~noble1_source.changes, unsigned
+```
+
+It takes the tree of the tag, so a release is the only input. `debian/rules` stages each app with
+the same `make stage` the `.deb` uses; `ppa-source` writes `debian/control` from each app's
+`packaging/control`, plus the changelog and copyright. On a tag, `release.yml` builds one for
+noble and one for resolute, signs them with `LAUNCHPAD_KEY` and uploads them with `dput`. Without
+that secret the job is skipped.
 
 ## Versions
 

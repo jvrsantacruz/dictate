@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# ppa-check [VERSION] - the Launchpad source package of every series,
+# and the three packages built from it alone, in a clean container of that
+# Ubuntu. What Launchpad does. `deb-check` covers the dpkg-deb packages;
+# nothing covered this path, and a version Launchpad rejects cannot be
+# uploaded again, so a failure here costs minutes and one there costs a
+# release number.
+#
+# VERSION defaults to the last release tag: ppa-source builds from a tag,
+# never from the working tree. The series are the ones release.yml uploads.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+version=${1:-$(git describe --tags --abbrev=0 --match 'v[0-9]*')}
+for pair in noble:24.04 resolute:26.04; do
+  echo "== ${pair%:*}, ubuntu:${pair#*:}"
+  docker run --rm -v "$PWD:/repo:ro" -e VERSION="${version#v}" -e SERIES="${pair%:*}" \
+    "ubuntu:${pair#*:}" bash -c '
+      set -e
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      apt-get install -y -qq git debhelper dpkg-dev
+      cp -a /repo /build && cd /build
+      git config --global --add safe.directory /build
+      tools/ppa-source "$VERSION" "$SERIES" >/dev/null
+      dpkg-source -x dist/ppa/*.dsc /package
+      cd /package
+      apt-get build-dep -y -qq ./
+      dpkg-buildpackage -b -us -uc >/dev/null
+      ls -1 /*.deb'
+done

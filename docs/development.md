@@ -77,6 +77,8 @@ are downloaded at build time, which a Launchpad builder cannot do.
 
 ```sh
 tools/ppa-source 0.2.1 noble      # dist/ppa/dictate_0.2.1-1~noble1_source.changes, unsigned
+make ppa-check                    # that, for every series, then the packages built from it
+                                  # alone in a clean container: what Launchpad does
 ```
 
 It takes the tree of the tag, so a release is the only input. `debian/rules` stages each app with

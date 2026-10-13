@@ -6,7 +6,7 @@ APPS = dictate dictate-indicator dictate-uinput dictate-whisper
 ONLY_ON = dictate-whisper=26.04
 
 .DEFAULT_GOAL := help
-.PHONY: help lint test deb deb-check clean
+.PHONY: help lint test deb deb-check ppa-check clean
 
 ## help       this list
 help:
@@ -31,6 +31,11 @@ deb:
 ## deb-check  lintian, then upgrade, reinstall and purge in clean Ubuntu containers
 deb-check: deb
 	ONLY_ON="$(ONLY_ON)" tools/deb-check $(foreach app,$(APPS),$(wildcard $(app)/dist/*.deb))
+
+## ppa-check  the Launchpad source package of the last tag, and the packages
+##            built from it alone in a clean container of each Ubuntu
+ppa-check:
+	tools/ppa-check
 
 ## clean      remove every build output
 clean:

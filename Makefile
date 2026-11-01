@@ -6,7 +6,7 @@ APPS = dictate dictate-indicator dictate-uinput dictate-whisper
 ONLY_ON = dictate-whisper=26.04
 
 .DEFAULT_GOAL := help
-.PHONY: help lint test deb deb-check ppa-check clean
+.PHONY: help lint test deb deb-check deb-battery ppa-check clean
 
 ## help       this list
 help:
@@ -31,6 +31,12 @@ deb:
 ## deb-check  lintian, then upgrade, reinstall and purge in clean Ubuntu containers
 deb-check: deb
 	ONLY_ON="$(ONLY_ON)" tools/deb-check $(foreach app,$(APPS),$(wildcard $(app)/dist/*.deb))
+
+## deb-battery  the generic deb battery: maintainer-script failure paths, per package
+deb-battery: deb
+	tools/deb-battery.sh --docker ubuntu:24.04 --docker ubuntu:26.04 \
+	  $(filter-out dictate-whisper/%,$(foreach app,$(APPS),$(wildcard $(app)/dist/*.deb)))
+	tools/deb-battery.sh --docker ubuntu:26.04 dictate-whisper/dist/*.deb
 
 ## ppa-check  the Launchpad source package of the last tag, and the packages
 ##            built from it alone in a clean container of each Ubuntu

@@ -21,8 +21,8 @@ for pair in noble:24.04 resolute:26.04; do
       apt-get install -y -qq git debhelper dpkg-dev
       cp -a /repo /build && cd /build
       git config --global --add safe.directory /build
-      tools/ppa-source "$VERSION" "$SERIES" >/dev/null
-      dpkg-source -x dist/ppa/*.dsc /package
+      tools/ppa-source "$VERSION" "$SERIES" /ppa >/dev/null
+      dpkg-source -x /ppa/*.dsc /package
       cd /package
       apt-get build-dep -y -qq ./
       dpkg-buildpackage -b -us -uc >/dev/null

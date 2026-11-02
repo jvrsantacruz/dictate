@@ -1,11 +1,6 @@
-# Build output: every file here is rebuilt by make, byte for byte.
-dist/
-build/
-*.deb
-*.changes
-*.buildinfo
-# Fetched by make, checked against its hash: the model dictate-whisper ships.
-dictate-whisper/cache/
+# No build output is ignored here: make builds outside the checkout, under each
+# package's OUT, default ~/.cache/dictate/<package>. A dist/, build/ or .deb that
+# appears in git status is a build that wrote where it must not.
 # Python tooling.
 .venv/
 __pycache__/

@@ -2,15 +2,18 @@
 # admin's consent to the grant.
 
 TOOLS    = ../tools
+# Built outside the checkout, never in it: the repository holds sources only.
+# OUT moves it; debian/rules points it inside its own build tree.
+OUT     ?= $(or $(XDG_CACHE_HOME),$(HOME)/.cache)/dictate/dictate-uinput
 # Outside a git checkout, such as a release tarball: make VERSION=X.Y.Z SOURCE_DATE_EPOCH=N deb
 ifeq ($(origin VERSION),undefined)
 VERSION := $(shell $(TOOLS)/deb-version v .)
 endif
-DEB      = dist/dictate-uinput_$(VERSION)_all.deb
-ROOT     = build/deb
+DEB      = $(OUT)/dist/dictate-uinput_$(VERSION)_all.deb
+ROOT     = $(OUT)/build/deb
 
 .DEFAULT_GOAL := help
-.PHONY: help stage deb deb-check clean
+.PHONY: help stage deb deb-path deb-check clean
 
 ## help       this list
 help:
@@ -25,10 +28,14 @@ stage:
 	install -Dm644 packaging/lintian-overrides $(ROOT)/usr/share/lintian/overrides/dictate-uinput
 
 deb: stage
-	@rm -f dist/dictate-uinput_*.deb
+	@rm -f $(OUT)/dist/dictate-uinput_*.deb
 	install -Dm755 packaging/postinst $(ROOT)/DEBIAN/postinst
 	install -Dm755 packaging/postrm $(ROOT)/DEBIAN/postrm
 	VERSION=$(VERSION) $(TOOLS)/deb-build $(ROOT) packaging/control $(DEB)
+
+## deb-path   where make deb writes this version's package
+deb-path:
+	@echo $(DEB)
 
 ## deb-check  lintian, then upgrade, reinstall and purge in clean containers
 deb-check: deb
@@ -36,4 +43,4 @@ deb-check: deb
 
 ## clean      remove the build output
 clean:
-	rm -rf dist build
+	rm -rf $(OUT)/dist $(OUT)/build

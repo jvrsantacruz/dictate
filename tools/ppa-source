@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ppa-source VERSION SERIES [OUT] - the Launchpad source package of VERSION
-# for one Ubuntu SERIES, unsigned, into OUT (default dist/ppa).
+# for one Ubuntu SERIES, unsigned, into OUT (default ~/.cache/dictate/ppa,
+# outside the checkout).
 #
 # The orig tarball is the tagged tree without debian/, the same bytes for every
 # series. debian/ gets control, changelog and copyright written here: control
@@ -9,7 +10,7 @@ set -euo pipefail
 
 version=${1:?usage: ppa-source VERSION SERIES [OUT]}
 series=${2:?usage: ppa-source VERSION SERIES [OUT]}
-out=${3:-dist/ppa}
+out=${3:-${XDG_CACHE_HOME:-$HOME/.cache}/dictate/ppa}
 apps=(dictate dictate-indicator dictate-uinput)
 maintainer="Javier Santacruz <javier.santacruz.lc@gmail.com>"
 

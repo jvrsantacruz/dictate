@@ -147,7 +147,7 @@ it.
 
 ```sh
 make lint test   # linters and unit tests
-make deb         # the four packages, into each app's dist/
+make deb         # the four packages, under ~/.cache/dictate/<package>/dist/; make -C <package> deb-path names one
 make deb-check   # lintian, then install, upgrade and purge in Ubuntu containers
 ```
 

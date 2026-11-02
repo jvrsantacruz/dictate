@@ -20,6 +20,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # The packages are built outside the checkout, in XDG_CACHE_HOME: here the
+      # runner's temporary directory, collected from there. A step, since a job's
+      # env cannot read the runner context.
+      - name: "Build outside the checkout"
+        run: "echo \"XDG_CACHE_HOME=$RUNNER_TEMP/cache\" >> \"$GITHUB_ENV\""
       - name: "The changelog opens with this version"
         run: "tools/check-changelog \"$GITHUB_REF_NAME\""
       - name: "Build and check the packages"
@@ -27,7 +32,7 @@ jobs:
       - uses: "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"  # v7.0.1
         with:
           name: "debs"
-          path: "*/dist/*.deb"
+          path: "${{ runner.temp }}/cache/dictate/*/dist/*.deb"
 
   release:
     runs-on: "ubuntu-24.04"
@@ -124,9 +129,9 @@ jobs:
           printf '%s' "$LAUNCHPAD_KEY_PASSPHRASE" > "$pass"
           version=${GITHUB_REF_NAME#v}
           for series in noble resolute; do
-            tools/ppa-source "$version" "$series"
+            tools/ppa-source "$version" "$series" "$RUNNER_TEMP/ppa"
           done
-          for changes in dist/ppa/*_source.changes; do
+          for changes in "$RUNNER_TEMP"/ppa/*_source.changes; do
             debsign -k"$fpr" -p"gpg --batch --pinentry-mode loopback --passphrase-file $pass" "$changes"
             dput "ppa:jvrsantacruz/dictate" "$changes"
           done

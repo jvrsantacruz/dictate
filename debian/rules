@@ -11,13 +11,16 @@ include /usr/share/dpkg/pkg-info.mk
 
 APPS = dictate dictate-indicator dictate-uinput
 MAKE_ARGS = VERSION=$(DEB_VERSION_UPSTREAM) SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH)
+# Each app's OUT inside this build tree: a builder has no usable HOME, and this
+# tree is the unpacked source, thrown away after, never the repository.
+OUT_OF = OUT=$(CURDIR)/debian/build/$(1)
 
 %:
 	dh $@
 
 override_dh_auto_build:
-	$(MAKE) -C dictate build $(MAKE_ARGS)
-	$(MAKE) -C dictate-indicator build $(MAKE_ARGS)
+	$(MAKE) -C dictate build $(MAKE_ARGS) $(call OUT_OF,dictate)
+	$(MAKE) -C dictate-indicator build $(MAKE_ARGS) $(call OUT_OF,dictate-indicator)
 
 # The unit tests need the venv's pytest and hamcrest; CI runs them on every push.
 override_dh_auto_test:
@@ -26,7 +29,7 @@ override_dh_auto_test:
 # debian/<package>.postinst, the name debhelper looks for.
 override_dh_auto_install:
 	for app in $(APPS); do \
-		$(MAKE) -C $$app stage ROOT=$(CURDIR)/debian/$$app $(MAKE_ARGS) || exit 1; \
+		$(MAKE) -C $$app stage ROOT=$(CURDIR)/debian/$$app $(MAKE_ARGS) OUT=$(CURDIR)/debian/build/$$app || exit 1; \
 	done
 	cp dictate-uinput/packaging/postinst debian/dictate-uinput.postinst
 	cp dictate-uinput/packaging/postrm debian/dictate-uinput.postrm
@@ -36,5 +39,5 @@ override_dh_installsystemduser:
 override_dh_installsystemd:
 
 override_dh_auto_clean:
-	for app in $(APPS); do $(MAKE) -C $$app clean || exit 1; done
+	rm -rf debian/build
 	rm -f debian/*.postinst debian/*.postrm

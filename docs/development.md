@@ -13,7 +13,7 @@ debian/             the Launchpad source package: rules only, the rest is writte
 ```
 
 `docs/tray.png` is made in a private headless GNOME Shell, never this desktop:
-`tools/tray-screenshot dictate-indicator/dist/dictate-indicator docs/tray.png`, after
+`tools/tray-screenshot ~/.cache/dictate/dictate-indicator/dist/dictate-indicator docs/tray.png`, after
 `make -C dictate-indicator build`.
 
 Each application is a zipapp on the system interpreter, packaged with `dpkg-deb`. `gi` comes
@@ -76,7 +76,7 @@ Ubuntu series from one source package. `dictate-whisper` stays on the Pages repo
 are downloaded at build time, which a Launchpad builder cannot do.
 
 ```sh
-tools/ppa-source 0.2.1 noble      # dist/ppa/dictate_0.2.1-1~noble1_source.changes, unsigned
+tools/ppa-source 0.2.1 noble      # ~/.cache/dictate/ppa/dictate_0.2.1-1~noble1_source.changes, unsigned
 make ppa-check                    # that, for every series, then the packages built from it
                                   # alone in a clean container: what Launchpad does
 ```

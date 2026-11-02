@@ -40,6 +40,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # The packages are built outside the checkout, in XDG_CACHE_HOME: here the
+      # runner's temporary directory, collected from there. A step, since a job's
+      # env cannot read the runner context.
+      - name: "Build outside the checkout"
+        run: "echo \"XDG_CACHE_HOME=$RUNNER_TEMP/cache\" >> \"$GITHUB_ENV\""
       - name: "Build and check the packages"
         run: "make deb-check"
       - name: "The deb battery: maintainer-script failure paths, per package"
@@ -47,4 +52,4 @@ jobs:
       - uses: "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"  # v7.0.1
         with:
           name: "debs"
-          path: "*/dist/*.deb"
+          path: "${{ runner.temp }}/cache/dictate/*/dist/*.deb"

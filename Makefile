@@ -4,6 +4,9 @@ APPS = dictate dictate-indicator dictate-uinput dictate-whisper
 # Packages that install only where their dependencies exist: whisper.cpp is in
 # Ubuntu from 26.04.
 ONLY_ON = dictate-whisper=26.04
+# Each package is built outside the checkout; its Makefile says where.
+deb_of = $(shell MAKEFLAGS= $(MAKE) -s --no-print-directory -C $(1) deb-path)
+DEBS = $(foreach app,$(APPS),$(call deb_of,$(app)))
 
 .DEFAULT_GOAL := help
 .PHONY: help lint test deb deb-check deb-battery ppa-check clean
@@ -24,19 +27,19 @@ test:
 	$(MAKE) -C dictate test
 	$(MAKE) -C dictate-indicator test
 
-## deb        the four packages, into each app's dist/
+## deb        the four packages, each under its OUT, outside the checkout
 deb:
 	for app in $(APPS); do $(MAKE) -C $$app deb || exit 1; done
 
 ## deb-check  lintian, then upgrade, reinstall and purge in clean Ubuntu containers
 deb-check: deb
-	ONLY_ON="$(ONLY_ON)" tools/deb-check $(foreach app,$(APPS),$(wildcard $(app)/dist/*.deb))
+	ONLY_ON="$(ONLY_ON)" tools/deb-check $(DEBS)
 
 ## deb-battery  the generic deb battery: maintainer-script failure paths, per package
 deb-battery: deb
 	tools/deb-battery.sh --docker ubuntu:24.04 --docker ubuntu:26.04 \
-	  $(filter-out dictate-whisper/%,$(foreach app,$(APPS),$(wildcard $(app)/dist/*.deb)))
-	tools/deb-battery.sh --docker ubuntu:26.04 dictate-whisper/dist/*.deb
+	  $(foreach app,$(filter-out dictate-whisper,$(APPS)),$(call deb_of,$(app)))
+	tools/deb-battery.sh --docker ubuntu:26.04 $(call deb_of,dictate-whisper)
 
 ## ppa-check  the Launchpad source package of the last tag, and the packages
 ##            built from it alone in a clean container of each Ubuntu

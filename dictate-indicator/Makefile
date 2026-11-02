@@ -2,18 +2,21 @@
 # interpreter; the venv here exists only for the linters and the tests.
 
 PYTHON  ?= /usr/bin/python3
-ARTIFACT = dist/dictate-indicator
-STAGE    = build/zipapp
+# Built outside the checkout, never in it: the repository holds sources only.
+# OUT moves it; debian/rules points it inside its own build tree.
+OUT     ?= $(or $(XDG_CACHE_HOME),$(HOME)/.cache)/dictate/dictate-indicator
+ARTIFACT = $(OUT)/dist/dictate-indicator
+STAGE    = $(OUT)/build/zipapp
 TOOLS    = ../tools
 # Outside a git checkout, such as a release tarball: make VERSION=X.Y.Z SOURCE_DATE_EPOCH=N deb
 ifeq ($(origin VERSION),undefined)
 VERSION := $(shell $(TOOLS)/deb-version v .)
 endif
-DEB      = dist/dictate-indicator_$(VERSION)_all.deb
-ROOT     = build/deb
+DEB      = $(OUT)/dist/dictate-indicator_$(VERSION)_all.deb
+ROOT     = $(OUT)/build/deb
 
 .DEFAULT_GOAL := help
-.PHONY: help build stage deb deb-check lint test run clean
+.PHONY: help build stage deb deb-path deb-check lint test run clean
 
 ## help     this list
 help:
@@ -31,9 +34,9 @@ help:
 ## stores both, and a umask or a timezone would otherwise change the bytes.
 build:
 	@rm -rf $(STAGE)
-	@mkdir -p $(STAGE) dist
+	@mkdir -p $(STAGE) $(OUT)/dist
 	cd src && cp --parents $$(find dictate_indicator -name '*.py' -o -name '*.svg') \
-		$(CURDIR)/$(STAGE)/
+		$(STAGE)/
 	cp src/dictate_indicator/__main__.py $(STAGE)/__main__.py
 	@chmod -R u=rwX,go=rX $(STAGE)
 	@find $(STAGE) -exec touch -h -d @946684800 {} +
@@ -58,9 +61,13 @@ stage: build
 	sed -e 's|@UNITS@|dictate-indicator.service|' -e 's|@ONLY_WITH@||' $(TOOLS)/postinst-restart > $(POSTINST)
 
 deb: stage
-	@rm -f dist/dictate-indicator_*.deb
+	@rm -f $(OUT)/dist/dictate-indicator_*.deb
 	install -Dm755 $(POSTINST) $(ROOT)/DEBIAN/postinst
 	VERSION=$(VERSION) $(TOOLS)/deb-build $(ROOT) packaging/control $(DEB)
+
+## deb-path   where make deb writes this version's package
+deb-path:
+	@echo $(DEB)
 
 ## deb-check  lintian, install, reinstall and remove in clean containers
 deb-check: deb
@@ -82,7 +89,7 @@ run:
 
 ## clean    remove the build output
 clean: clean-cache
-	rm -rf dist build
+	rm -rf $(OUT)/dist $(OUT)/build
 
 .PHONY: clean-cache
 clean-cache:

@@ -4,18 +4,21 @@
 # `gi`: see docs/development.md.
 
 PYTHON   ?= /usr/bin/python3
-ARTIFACT  = dist/dictate
-STAGE     = build/zipapp
+# Built outside the checkout, never in it: the repository holds sources only.
+# OUT moves it; debian/rules points it inside its own build tree.
+OUT     ?= $(or $(XDG_CACHE_HOME),$(HOME)/.cache)/dictate/dictate
+ARTIFACT  = $(OUT)/dist/dictate
+STAGE     = $(OUT)/build/zipapp
 TOOLS     = ../tools
 # Outside a git checkout, such as a release tarball: make VERSION=X.Y.Z SOURCE_DATE_EPOCH=N deb
 ifeq ($(origin VERSION),undefined)
 VERSION := $(shell $(TOOLS)/deb-version v .)
 endif
-DEB       = dist/dictate_$(VERSION)_all.deb
-ROOT      = build/deb
+DEB       = $(OUT)/dist/dictate_$(VERSION)_all.deb
+ROOT      = $(OUT)/build/deb
 
 .DEFAULT_GOAL := help
-.PHONY: help build stage deb deb-check lint test integration smoke run clean
+.PHONY: help build stage deb deb-path deb-check lint test integration smoke run clean
 
 ## help         this list
 help:
@@ -31,8 +34,8 @@ help:
 ## and a python installed there by uv has no `gi`.
 build:
 	@rm -rf $(STAGE)
-	@mkdir -p $(STAGE) dist
-	cd src && cp --parents $$(find dictate -name '*.py') $(CURDIR)/$(STAGE)/
+	@mkdir -p $(STAGE) $(OUT)/dist
+	cd src && cp --parents $$(find dictate -name '*.py') $(STAGE)/
 	cp src/dictate/__main__.py $(STAGE)/__main__.py
 	@chmod -R u=rwX,go=rX $(STAGE)
 	@find $(STAGE) -exec touch -h -d @946684800 {} +
@@ -63,9 +66,13 @@ stage: build
 	sed -e 's|@UNITS@|org.freedesktop.IBus.session.GNOME.service|' -e 's|@ONLY_WITH@|/usr/bin/python3 /usr/bin/dictate engine|' $(TOOLS)/postinst-restart > $(POSTINST)
 
 deb: stage
-	@rm -f dist/dictate_*.deb
+	@rm -f $(OUT)/dist/dictate_*.deb
 	install -Dm755 $(POSTINST) $(ROOT)/DEBIAN/postinst
 	VERSION=$(VERSION) $(TOOLS)/deb-build $(ROOT) packaging/control $(DEB)
+
+## deb-path   where make deb writes this version's package
+deb-path:
+	@echo $(DEB)
 
 ## deb-check    lintian, then install, reinstall and remove the package in a
 ##              clean container of each supported Ubuntu
@@ -84,7 +91,7 @@ test:
 
 ## integration  the headless tier: a private GNOME Shell, never this desktop
 integration: build
-	tests/integration/run $(CURDIR)/$(ARTIFACT)
+	tests/integration/run $(ARTIFACT)
 
 ## smoke        the live tier: this desktop, ydotool. Takes the keyboard for
 ##              about 20 seconds; the screen must be unlocked
@@ -93,4 +100,4 @@ smoke:
 
 ## clean        remove the build output
 clean:
-	rm -rf dist build
+	rm -rf $(OUT)/dist $(OUT)/build

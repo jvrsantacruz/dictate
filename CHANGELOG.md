@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+- No change to what the packages install. They are now built outside the source tree, and every
+  package passes the full deb battery before a release: install, upgrade, reinstall, purge, and
+  each maintainer script failing on purpose.
+
 ## 0.3.1
 
 - A recording no transcriber could take is kept instead of deleted: `dictate retry` transcribes

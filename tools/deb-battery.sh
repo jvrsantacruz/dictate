@@ -57,8 +57,9 @@ install_pkg() {
 }
 
 # Regular files dpkg still lists after --remove: only conffiles may remain.
+# The deb's own conffiles list, not dpkg's: dpkg drops /var/lib/dpkg/info on remove.
 leftover_files() {
-  conf="/var/lib/dpkg/info/$PKG.conffiles"
+  conf="$WORK/ctl/conffiles"
   dpkg -L "$PKG" 2>/dev/null | while IFS= read -r f; do
     [ -f "$f" ] || continue
     { [ -s "$conf" ] && awk '{print $NF}' "$conf" | grep -qxF "$f"; } && continue
